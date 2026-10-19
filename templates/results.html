@@ -1,19 +1,32 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Job Recommendations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Job Recommendations — MVP</title>
 </head>
 <body>
-    <h1>Your Job Recommendations</h1>
+    <h1>Job Recommendations</h1>
+    <p><strong>Demo:</strong> These are sample jobs and toy match scores.</p>
 
-    {% for job in jobs %}
-        <h2>{{ job.title }}</h2>
-        <p>Company: {{ job.company }}</p>
-        <p>Match Score: {{ job.score }}%</p>
+    <h2>Inputs received</h2>
+    <p>Desired role: {{ preferences.role or "Not specified" }}</p>
+    <p>Location: {{ preferences.location or "Not specified" }}</p>
+    <p>Mock resume skills: {{ profile.skills | join(", ") }}</p>
+
+    <h2>Ranked jobs</h2>
+    {% for match in matches %}
+        <article>
+            <h3>{{ match.job.title }}</h3>
+            <p>{{ match.job.description }}</p>
+            <p>Demo match score: {{ match.score }}%</p>
+        </article>
         <hr>
+    {% else %}
+        <p>No jobs returned.</p>
     {% endfor %}
 
-    <a href="/">Back to Home</a>
+    <a href="/">Back to search</a>
 </body>
 </html>

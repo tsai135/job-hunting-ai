@@ -1,16 +1,30 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Job Hunting AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Job Hunting AI — MVP</title>
 </head>
 <body>
     <h1>Job Hunting AI</h1>
+    <p>Upload a PDF resume and enter job preferences.</p>
+    <p><strong>Demo:</strong> Resume parsing and job retrieval use placeholder data.</p>
 
-    <p>Find jobs that match your skills and experience.</p>
-
-    <a href="/match">
-        <button>Find Matching Jobs</button>
-    </a>
+    <form action="/match" method="POST" enctype="multipart/form-data">
+        <p>
+            <label for="resume">Resume (PDF):</label>
+            <input id="resume" type="file" name="resume" accept=".pdf,application/pdf" required>
+        </p>
+        <p>
+            <label for="role">Desired role:</label>
+            <input id="role" type="text" name="role" placeholder="Backend Developer">
+        </p>
+        <p>
+            <label for="location">Preferred location:</label>
+            <input id="location" type="text" name="location" placeholder="California">
+        </p>
+        <button type="submit">Find Matching Jobs</button>
+    </form>
 </body>
 </html>
