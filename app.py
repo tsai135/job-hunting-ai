@@ -15,6 +15,21 @@ def home():
     return render_template("index.html")
 
 
+@app.get("/login")
+def login_page():
+    return render_template("login.html")
+
+
+@app.get("/register")
+def register_page():
+    return render_template("register.html")
+
+
+@app.get("/upload")
+def upload_page():
+    return render_template("upload.html")
+
+
 @app.post("/match")
 def match():
     # STEP 1: Receive input from Paulene's UI
