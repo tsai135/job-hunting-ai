@@ -1,0 +1,152 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Login | Job Hunting AI</title>
+
+    <!-- Bootstrap -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <!-- Shared dark theme -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <!-- Authentication page styling -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/auth.css') }}"
+    >
+</head>
+
+<body class="auth-page">
+
+    <div class="auth-layout">
+
+        <!-- Left: Branding and introduction -->
+        <section class="auth-intro">
+
+            <a href="/" class="auth-brand">
+                JOB HUNTING AI
+            </a>
+
+            <div class="auth-intro-content">
+
+                <span class="auth-eyebrow">
+                    AI-POWERED CAREER DISCOVERY
+                </span>
+
+                <h1 class="auth-headline">
+                    Discover<br>
+                    what's <span>next.</span>
+                </h1>
+
+                <p class="auth-description">
+                    Your experience deserves the right
+                    opportunity. Discover careers that
+                    match your skills, qualifications,
+                    and ambitions.
+                </p>
+
+                <div class="auth-decoration" aria-hidden="true">
+                    <span>↗</span>
+                </div>
+
+            </div>
+
+            <p class="auth-footer">
+                CS 467 CAPSTONE PROJECT · 2026
+            </p>
+
+        </section>
+
+        <!-- Right: Login form -->
+        <main class="auth-form-panel">
+
+            <div class="auth-form-container">
+
+                <span class="auth-eyebrow">
+                    01 / ACCOUNT ACCESS
+                </span>
+
+                <h2 class="auth-form-title">
+                    Welcome back.
+                </h2>
+
+                <p class="auth-form-description">
+                    Sign in to continue your career journey.
+                </p>
+
+                <!-- Frontend-only form until backend auth exists -->
+                <form id="loginForm">
+
+                    <div class="auth-field">
+                        <label for="email">
+                            EMAIL ADDRESS
+                        </label>
+
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            required
+                        >
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="password">
+                            PASSWORD
+                        </label>
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" class="auth-submit">
+                        SIGN IN
+                    </button>
+
+                </form>
+
+                <p class="auth-switch">
+                    Don't have an account?
+                    <a href="/register">Create an account</a>
+                </p>
+
+                <p class="auth-demo-note">
+                    UI preview only — authentication
+                    is not yet connected.
+                </p>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Prevent an unimplemented login submission -->
+    <script>
+        document.getElementById("loginForm")
+            .addEventListener("submit", function(event) {
+                event.preventDefault();
+                alert("Login functionality is coming soon.");
+            });
+    </script>
+
+</body>
+</html>

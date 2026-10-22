@@ -4,29 +4,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Job Recommendations — MVP</title>
+
+    <title>Job Matches | Job Hunting AI</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
 </head>
-<body>
-    <h1>Job Recommendations</h1>
-    <p><strong>Demo:</strong> These are sample jobs and toy match scores.</p>
 
-    <h2>Inputs received</h2>
-    <p>Desired role: {{ preferences.role or "Not specified" }}</p>
-    <p>Location: {{ preferences.location or "Not specified" }}</p>
-    <p>Mock resume skills: {{ profile.skills | join(", ") }}</p>
+<body class="dashboard-page">
 
-    <h2>Ranked jobs</h2>
-    {% for match in matches %}
-        <article>
-            <h3>{{ match.job.title }}</h3>
-            <p>{{ match.job.description }}</p>
-            <p>Demo match score: {{ match.score }}%</p>
-        </article>
-        <hr>
-    {% else %}
-        <p>No jobs returned.</p>
-    {% endfor %}
+    <!-- NAVIGATION -->
+    <nav class="dashboard-nav">
+        <div class="container nav-container">
 
-    <a href="/">Back to search</a>
+            <a href="/" class="dashboard-brand">
+                JOB HUNTING AI
+            </a>
+
+            <div class="dashboard-links">
+                <a href="/">HOME</a>
+                <a href="/upload">UPLOAD</a>
+                <span class="active" aria-current="page">
+                    RESULTS
+                </span>
+            </div>
+
+        </div>
+    </nav>
+
+    <main class="container results-main">
+
+        <!-- PAGE HEADER -->
+        <header class="results-header">
+
+            <span class="upload-eyebrow">
+                03 / YOUR RESULTS
+            </span>
+
+            <h1>Your job matches.</h1>
+
+            <p>
+                Explore opportunities ranked around
+                your resume and career preferences.
+            </p>
+
+        </header>
+
+        <!-- SEARCH SUMMARY -->
+        <section class="results-summary"
+                 aria-label="Search summary">
+
+            <div class="summary-item">
+                <span>DESIRED ROLE</span>
+
+                <strong>
+                    {{ preferences.role or "Not specified" }}
+                </strong>
+            </div>
+
+            <div class="summary-item">
+                <span>PREFERRED LOCATION</span>
+
+                <strong>
+                    {{ preferences.location or "Not specified" }}
+                </strong>
+            </div>
+
+            <div class="summary-item">
+                <span>JOBS FOUND</span>
+
+                <strong>
+                    {{ matches | length }} matches
+                </strong>
+            </div>
+
+        </section>
+
+        <!-- RESUME SKILLS -->
+        <section class="skills-section">
+
+            <h2>Skills identified</h2>
+
+            <div class="skills-list">
+                {% for skill in profile.skills %}
+                    <span class="skill-tag">
+                        {{ skill }}
+                    </span>
+                {% else %}
+                    <p class="results-muted">
+                        No skills identified.
+                    </p>
+                {% endfor %}
+            </div>
+
+        </section>
+
+        <!-- MATCHED JOBS -->
+        <section class="results-list">
+
+            <div class="results-list-heading">
+                <h2>Recommended opportunities</h2>
+
+                <span>
+                    RANKED BY MATCH SCORE
+                </span>
+            </div>
+
+            {% for match in matches %}
+
+                <article class="job-card">
+
+                    <div class="job-card-header">
+
+                        <div class="job-info">
+
+                            <span class="job-rank">
+                                MATCH
+                                {{ "%02d" | format(loop.index) }}
+                            </span>
+
+                            <h3>
+                                {{ match.job.title }}
+                            </h3>
+
+                        </div>
+
+                        <div class="match-score">
+                            <strong>
+                                {{ match.score }}%
+                            </strong>
+
+                            <span>MATCH</span>
+                        </div>
+
+                    </div>
+
+                    <p class="job-description">
+                        {{ match.job.description }}
+                    </p>
+
+                    <!-- Match score progress -->
+                    <div
+                        class="match-progress"
+                        role="progressbar"
+                        aria-label="Job match score"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow="{{ match.score }}"
+                    >
+                        <div
+                            class="match-progress-fill"
+                            style="width: {{ [0, [match.score | float, 100] | min] | max }}%;"
+                        ></div>
+                    </div>
+
+                </article>
+
+            {% else %}
+
+                <div class="results-empty">
+                    <h3>No matching jobs found.</h3>
+
+                    <p>
+                        Try uploading another resume
+                        or adjusting your preferences.
+                    </p>
+
+                    <a href="/upload"
+                       class="results-action">
+                        TRY AGAIN
+                    </a>
+                </div>
+
+            {% endfor %}
+
+        </section>
+
+        <!-- FOOTER ACTIONS -->
+        <div class="results-actions">
+
+            <a href="/upload" class="results-action">
+                UPLOAD ANOTHER RESUME
+            </a>
+
+            <a href="/" class="results-home-link">
+                BACK TO HOME
+            </a>
+
+        </div>
+
+        <footer class="results-footer">
+            CS 467 CAPSTONE PROJECT ·
+            MATCH SCORES MAY USE DEMO DATA
+        </footer>
+
+    </main>
+
 </body>
 </html>
+
