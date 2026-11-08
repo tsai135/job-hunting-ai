@@ -3,9 +3,10 @@ import os
 from pathlib import Path
 
 from flask import Flask, render_template, request, session
+from openai import OpenAIError
 
 # Import functions from teammates' modules
-from services.resume import parse_resume       # Sheyar
+from services.resume_parser import UnreadablePDFError, parse_resume  # Sheyar
 from services.job_data import search_jobs       # Lawrence
 from services.matching import rank_jobs         # Bao
 from database import init_db, save_search
@@ -71,7 +72,7 @@ def match():
 
         # STEP 4: Bao ranks the jobs
         matches = rank_jobs(profile, jobs)
-    except (RuntimeError, ValueError) as exc:
+    except (OpenAIError, RuntimeError, ValueError, UnreadablePDFError) as exc:
         return render_template("upload.html", error=str(exc)), 503
 
     owner_id = session.setdefault("owner_id", os.urandom(16).hex())
