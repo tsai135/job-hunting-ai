@@ -9,3 +9,6 @@ Werkzeug==3.1.9
 pypdf
 openai
 pydantic
+python-dotenv
+pytest
+sentence-transformers
