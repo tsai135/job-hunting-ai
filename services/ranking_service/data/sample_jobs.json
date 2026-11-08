@@ -1,0 +1,182 @@
+[
+    {
+        "id": "job001",
+        "title": "Python Backend Developer",
+        "description": "We are looking for a Python Backend Developer with experience building REST APIs and backend applications. Candidates should have knowledge of Python, SQL, and Flask. Experience with Docker and AWS is preferred. A bachelor's degree in Computer Science or a related field is preferred. Candidates should have at least 2 years of professional software development experience.",
+        "company": "Tech Solutions Inc.",
+        "location": "New York, NY",
+        "url": "https://example.com/jobs/job001",
+        "requirements": {
+            "required_skills": ["Python", "SQL", "Flask", "REST APIs"],
+            "preferred_skills": ["Docker", "AWS"],
+            "minimum_experience_years": 2,
+            "education_requirement": "Bachelor's degree in Computer Science or related field",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job002",
+        "title": "Data Analyst",
+        "description": "We are seeking a Data Analyst to analyze business data and generate reports. The ideal candidate should have experience with SQL, Python, Excel, and data visualization tools. Knowledge of Tableau and Power BI is preferred. A bachelor's degree in Statistics, Data Science, or a related field is required. At least 1 year of relevant experience is preferred.",
+        "company": "Data Insights Group",
+        "location": "San Francisco, CA",
+        "url": "https://example.com/jobs/job002",
+        "requirements": {
+            "required_skills": ["SQL", "Python", "Excel", "Data Analysis"],
+            "preferred_skills": ["Tableau", "Power BI"],
+            "minimum_experience_years": 1,
+            "education_requirement": "Bachelor's degree in Statistics, Data Science, or related field",
+            "seniority": "Entry-Level"
+        }
+    },
+    {
+        "id": "job003",
+        "title": "Frontend Web Developer",
+        "description": "We are hiring a Frontend Web Developer to build responsive and interactive web applications. Candidates should have strong knowledge of HTML, CSS, JavaScript, and React. Experience with TypeScript and responsive design is preferred. A bachelor's degree in Computer Science or equivalent practical experience is acceptable. Candidates should have at least 1 year of frontend development experience.",
+        "company": "PixelCraft Technologies",
+        "location": "Austin, TX",
+        "url": "https://example.com/jobs/job003",
+        "requirements": {
+            "required_skills": ["HTML", "CSS", "JavaScript", "React"],
+            "preferred_skills": ["TypeScript", "Responsive Design"],
+            "minimum_experience_years": 1,
+            "education_requirement": "Bachelor's degree in Computer Science or equivalent experience",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job004",
+        "title": "Machine Learning Engineer",
+        "description": "We are looking for a Machine Learning Engineer to develop and deploy machine learning models. The candidate should have experience with Python, machine learning algorithms, data preprocessing, and model evaluation. Familiarity with TensorFlow, PyTorch, and scikit-learn is required. Experience with cloud platforms and MLOps is preferred. A master's degree in Computer Science or a related field is preferred. At least 3 years of experience is required.",
+        "company": "NextGen AI Labs",
+        "location": "Seattle, WA",
+        "url": "https://example.com/jobs/job004",
+        "requirements": {
+            "required_skills": ["Python", "Machine Learning", "TensorFlow", "PyTorch", "scikit-learn"],
+            "preferred_skills": ["AWS", "MLOps", "Docker"],
+            "minimum_experience_years": 3,
+            "education_requirement": "Master's degree in Computer Science or related field preferred",
+            "seniority": "Mid-Level"
+        }
+    },
+    {
+        "id": "job005",
+        "title": "Full Stack Developer",
+        "description": "We are seeking a Full Stack Developer to develop and maintain web applications across frontend and backend systems. Candidates should be proficient in JavaScript, React, Node.js, Express, and MongoDB. Knowledge of REST APIs and Git is required. Experience with Docker and cloud deployment is preferred. A bachelor's degree or equivalent experience is required. At least 2 years of development experience is preferred.",
+        "company": "CloudBridge Software",
+        "location": "Los Angeles, CA",
+        "url": "https://example.com/jobs/job005",
+        "requirements": {
+            "required_skills": ["JavaScript", "React", "Node.js", "Express", "MongoDB", "REST APIs"],
+            "preferred_skills": ["Docker", "AWS", "Git"],
+            "minimum_experience_years": 2,
+            "education_requirement": "Bachelor's degree or equivalent practical experience",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job006",
+        "title": "C++ Software Engineer",
+        "description": "We are hiring a C++ Software Engineer to develop high-performance software applications. Candidates should have experience with C++, object-oriented programming, data structures, algorithms, and debugging. Familiarity with Linux, multithreading, and memory management is preferred. A bachelor's degree in Computer Science or Computer Engineering is required. At least 2 years of software engineering experience is preferred.",
+        "company": "Core Systems Engineering",
+        "location": "Boston, MA",
+        "url": "https://example.com/jobs/job006",
+        "requirements": {
+            "required_skills": ["C++", "Object-Oriented Programming", "Data Structures", "Algorithms"],
+            "preferred_skills": ["Linux", "Multithreading", "Memory Management"],
+            "minimum_experience_years": 2,
+            "education_requirement": "Bachelor's degree in Computer Science or Computer Engineering",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job007",
+        "title": "Cloud DevOps Engineer",
+        "description": "We are looking for a Cloud DevOps Engineer to manage cloud infrastructure and automate deployment pipelines. Candidates should have experience with AWS, Docker, Kubernetes, Linux, and CI/CD pipelines. Knowledge of Terraform and Python scripting is preferred. A bachelor's degree in Computer Science or a related discipline is required. At least 4 years of professional experience is required.",
+        "company": "Skyline Cloud Services",
+        "location": "Denver, CO",
+        "url": "https://example.com/jobs/job007",
+        "requirements": {
+            "required_skills": ["AWS", "Docker", "Kubernetes", "Linux", "CI/CD"],
+            "preferred_skills": ["Terraform", "Python"],
+            "minimum_experience_years": 4,
+            "education_requirement": "Bachelor's degree in Computer Science or related field",
+            "seniority": "Senior"
+        }
+    },
+    {
+        "id": "job008",
+        "title": "Junior Java Developer",
+        "description": "We are seeking a Junior Java Developer to help build and maintain enterprise applications. Candidates should have knowledge of Java, object-oriented programming, SQL, and Spring Boot. Familiarity with Git and REST APIs is preferred. A bachelor's degree in Computer Science or a related field is required. Recent graduates are encouraged to apply.",
+        "company": "Enterprise Apps LLC",
+        "location": "Chicago, IL",
+        "url": "https://example.com/jobs/job008",
+        "requirements": {
+            "required_skills": ["Java", "Object-Oriented Programming", "SQL", "Spring Boot"],
+            "preferred_skills": ["Git", "REST APIs"],
+            "minimum_experience_years": 0,
+            "education_requirement": "Bachelor's degree in Computer Science or related field",
+            "seniority": "Entry-Level"
+        }
+    },
+    {
+        "id": "job009",
+        "title": "AI Application Developer",
+        "description": "We are looking for an AI Application Developer to build applications powered by large language models. Candidates should have experience with Python, REST APIs, prompt engineering, and LLM integration. Knowledge of OpenAI APIs, vector databases, embeddings, and semantic search is required. Experience with ChromaDB and Flask is preferred. A bachelor's degree in Computer Science or equivalent experience is required. At least 1 year of relevant development experience is preferred.",
+        "company": "Intelligent Applications Inc.",
+        "location": "San Jose, CA",
+        "url": "https://example.com/jobs/job009",
+        "requirements": {
+            "required_skills": ["Python", "REST APIs", "Prompt Engineering", "LLM Integration", "Embeddings", "Semantic Search"],
+            "preferred_skills": ["OpenAI API", "ChromaDB", "Flask", "Vector Databases"],
+            "minimum_experience_years": 1,
+            "education_requirement": "Bachelor's degree in Computer Science or equivalent experience",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job010",
+        "title": "Database Developer",
+        "description": "We are hiring a Database Developer to design, implement, and optimize relational databases. Candidates should have experience with SQL, PostgreSQL, database design, query optimization, and data modeling. Knowledge of MySQL, Python, and database administration is preferred. A bachelor's degree in Computer Science or Information Systems is required. At least 2 years of database development experience is preferred.",
+        "company": "Reliable Data Systems",
+        "location": "Portland, OR",
+        "url": "https://example.com/jobs/job010",
+        "requirements": {
+            "required_skills": ["SQL", "PostgreSQL", "Database Design", "Query Optimization", "Data Modeling"],
+            "preferred_skills": ["MySQL", "Python", "Database Administration"],
+            "minimum_experience_years": 2,
+            "education_requirement": "Bachelor's degree in Computer Science or Information Systems",
+            "seniority": "Junior"
+        }
+    },
+    {
+        "id": "job011",
+        "title": "Software Engineering Intern",
+        "description": "We are looking for a Software Engineering Intern to contribute to the development and testing of software applications. Candidates should understand Python or Java, data structures, algorithms, and basic software development practices. Experience with Git and collaborative development is preferred. Applicants must be currently enrolled in a Computer Science or related degree program. No professional experience is required.",
+        "company": "Innovate Software",
+        "location": "Remote",
+        "url": "https://example.com/jobs/job011",
+        "requirements": {
+            "required_skills": ["Python", "Java", "Data Structures", "Algorithms"],
+            "preferred_skills": ["Git", "Software Testing"],
+            "minimum_experience_years": 0,
+            "education_requirement": "Currently enrolled in a Computer Science or related degree program",
+            "seniority": "Internship"
+        }
+    },
+    {
+        "id": "job012",
+        "title": "Cybersecurity Analyst",
+        "description": "We are seeking a Cybersecurity Analyst to monitor systems, investigate security incidents, and identify vulnerabilities. Candidates should understand network security, Linux, security monitoring, and vulnerability assessment. Knowledge of Python, SIEM tools, and penetration testing is preferred. A bachelor's degree in Cybersecurity, Computer Science, or a related field is required. At least 2 years of cybersecurity experience is preferred.",
+        "company": "SecureNet Defense",
+        "location": "Washington, DC",
+        "url": "https://example.com/jobs/job012",
+        "requirements": {
+            "required_skills": ["Network Security", "Linux", "Security Monitoring", "Vulnerability Assessment"],
+            "preferred_skills": ["Python", "SIEM", "Penetration Testing"],
+            "minimum_experience_years": 2,
+            "education_requirement": "Bachelor's degree in Cybersecurity, Computer Science, or related field",
+            "seniority": "Junior"
+        }
+    }
+]

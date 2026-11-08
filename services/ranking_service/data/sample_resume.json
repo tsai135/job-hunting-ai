@@ -1,0 +1,45 @@
+{
+    "candidate_profile": {
+        "inferred_seniority": "Entry-level",
+        "primary_domain": "Software Engineering",
+        "career_trajectory": "Interested in backend development and AI engineering."
+    },
+    "executive_summary": "Computer Science student with experience developing applications using Python, JavaScript, and SQL. Interested in building backend services and AI-powered applications.",
+    "core_competencies": {
+        "technical_skills": [
+            "Python",
+            "JavaScript",
+            "SQL",
+            "C++"
+        ],
+        "domain_knowledge": [
+            "Software Development",
+            "Database Management"
+        ],
+        "tools_and_frameworks": [
+            "Flask",
+            "React",
+            "Git",
+            "Docker"
+        ]
+    },
+    "professional_experience": [
+        {
+            "title": "Software Development Intern",
+            "organization": "Example Company",
+            "duration": "6 months",
+            "responsibilities": [
+                "Developed backend APIs using Python and Flask.",
+                "Worked with SQL databases.",
+                "Collaborated with developers using Git."
+            ]
+        }
+    ],
+    "academic_and_project_portfolio": [
+        {
+            "title": "Job Hunting AI",
+            "type": "Academic Project",
+            "description": "Developed a job recommendation application using Python, Flask, and semantic matching."
+        }
+    ]
+}
