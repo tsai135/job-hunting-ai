@@ -1,0 +1,47 @@
+# Project Context: AI Job Search Tool
+We are building a decoupled web app using Python, Flask, React, and ChromaDB. My role is strictly the "Live Inference Pipeline." I do not write Flask routing or React UI. 
+
+# My Module Responsibilities
+My Python module receives a user's uploaded PDF resume from the Flask server, processes it, queries a vector database, and returns a final JSON response.
+
+# The Pipeline Steps
+1. **Extraction:** Use `PyPDF` to extract raw text from the uploaded PDF.
+2. **Structuring:** Call the OpenAI API (using Structured Outputs/Pydantic) to convert the raw text into a rich JSON dictionary.
+3. **Vectorization:** Use `SentenceTransformers` to convert the structured JSON into a numerical vector embedding.
+4. **Matching:** Take the vector and query the local ChromaDB database (which holds our pre-processed job postings) using `.query()` to return the top 5 job matches.
+5. **Gap Analysis:** Pass the top 5 matched jobs and the user's JSON profile to the OpenAI API to generate a "missing skills" report and follow-up questions.
+6. **Handoff:** Return a single JSON object containing the matched jobs and the AI feedback to be consumed by the Flask backend.
+
+# Target Resume JSON Schema
+When writing the OpenAI extraction logic, force the LLM to output exactly this schema:
+{
+  "candidate_profile": {
+    "inferred_seniority": "string",
+    "primary_domain": "string",
+    "career_trajectory": "string"
+  },
+  "executive_summary": "string (2-3 sentences)",
+  "core_competencies": {
+    "technical_skills": ["string"],
+    "domain_knowledge": ["string"],
+    "tools_and_frameworks": ["string"]
+  },
+  "professional_experience": [
+    {
+      "title": "string",
+      "organization": "string",
+      "duration": "string",
+      "responsibilities": ["string"]
+    }
+  ],
+  "academic_and_project_portfolio": [
+    {
+      "title": "string",
+      "type": "string",
+      "description": "string"
+    }
+  ]
+}
+
+# Output Rule
+Always write clean, modular Python functions. Assume another developer will import these functions into their Flask server.
