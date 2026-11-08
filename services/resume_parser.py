@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError, PyPdfError
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(_PROJECT_ROOT / ".env")
 
 DEFAULT_MODEL = os.getenv("OPENAI_RESUME_MODEL", "gpt-4o-2024-08-06")
