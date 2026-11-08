@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -125,12 +124,13 @@
                     <h3>Job Recommendations</h3>
 
                     <p>
-                        Discover job opportunities based
-                        on your resume and preferences.
+                        Preview job recommendations
+                        using sample resume and job data.
                     </p>
 
-                    <a href="/upload" class="home-card-link">
-                        FIND MATCHES
+                    <a href="{{ url_for('test_results') }}"
+                       class="home-card-link">
+                       VIEW DEMO MATCHES
                     </a>
 
                 </article>
@@ -145,13 +145,77 @@
                     <h3>My Profile</h3>
 
                     <p>
-                        Manage your skills, experience,
-                        and career preferences.
+                        View and manage your career preferences.
                     </p>
 
-                    <span class="home-coming-soon">
-                        COMING SOON
-                    </span>
+                    <!-- DISPLAY SAVED PREFERENCES -->
+                    {% if preferences.get("role") or preferences.get("location") %}
+
+                        <div class="profile-saved">
+
+                            <p>
+                                <strong>Desired Role:</strong>
+                                {{ preferences.get("role") or "Not specified" }}
+                            </p>
+
+                            <p>
+                                <strong>Preferred Location:</strong>
+                                {{ preferences.get("location") or "Not specified" }}
+                            </p>
+
+                        </div>
+
+                    {% else %}
+
+                        <p class="profile-empty">
+                            No career preferences saved yet.
+                        </p>
+
+                    {% endif %}
+
+                    <!-- EDIT CAREER PREFERENCES -->
+                    <form
+                        action="/save-preferences"
+                        method="POST"
+                        class="profile-form"
+                    >
+
+                        <div class="upload-field">
+                            <label for="profile-role">
+                                DESIRED ROLE
+                            </label>
+
+                            <input
+                                type="text"
+                                id="profile-role"
+                                name="role"
+                                value="{{ preferences.get('role', '') }}"
+                                placeholder="Software Engineer"
+                            >
+                        </div>
+
+                        <div class="upload-field">
+                            <label for="profile-location">
+                                PREFERRED LOCATION
+                            </label>
+
+                            <input
+                                type="text"
+                                id="profile-location"
+                                name="location"
+                                value="{{ preferences.get('location', '') }}"
+                                placeholder="Chino Hills, CA"
+                            >
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="upload-submit"
+                        >
+                            SAVE PREFERENCES
+                        </button>
+
+                    </form>
 
                 </article>
 

@@ -138,7 +138,7 @@
 
                         <div class="match-score">
                             <strong>
-                                {{ match.score }}%
+                                {{ "%.1f"|format(match.score|float) }}%
                             </strong>
 
                             <span>MATCH</span>
