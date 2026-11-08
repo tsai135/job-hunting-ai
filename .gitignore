@@ -3,6 +3,3 @@ venv/
 __pycache__/
 *.pyc
 .env
-.env.*
-!.env.example
-services/chromadb_jobs/

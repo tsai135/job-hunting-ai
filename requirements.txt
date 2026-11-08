@@ -12,3 +12,6 @@ chromadb
 pypdf
 openai
 pydantic
+python-dotenv
+pytest
+sentence-transformers
