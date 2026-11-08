@@ -1,123 +1,33 @@
+"""Rank normalized job postings against a candidate profile."""
 
-import chromadb
-from pathlib import Path
+from __future__ import annotations
+
+import re
+from typing import Any
 
 
-CHROMADB_PATH = Path(__file__).resolve().parent / "chromadb_jobs"
+def _profile_terms(profile: dict[str, Any]) -> set[str]:
+    terms = set(str(skill).lower() for skill in profile.get("skills", []))
+    candidate = profile.get("candidate_profile") or {}
+    if isinstance(candidate, dict):
+        terms.update(str(value).lower() for value in candidate.values())
+    return {term for term in terms if term}
 
 
-def rank_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
+def rank_jobs(profile: dict[str, Any], jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return up to five jobs scored by transparent lexical relevance.
+
+    This avoids requiring a local embedding model for the first prototype.
+    The service boundary remains compatible with the previous ChromaDB result
+    shape and can be replaced with semantic scoring later.
     """
-    Rank job postings based on a candidate's profile using
-    ChromaDB semantic similarity search.
-    """
+    terms = _profile_terms(profile)
+    ranked: list[dict[str, Any]] = []
+    for index, job in enumerate(jobs):
+        text = f"{job.get('title', '')} {job.get('description', '')}".lower()
+        matches = sum(bool(re.search(rf"\b{re.escape(term)}\b", text)) for term in terms)
+        score = min(100.0, round(35.0 + matches * 13.0, 2))
+        ranked.append({"job": job, "score": score, "_index": index})
 
-    # Create a persistent ChromaDB client.
-    client = chromadb.PersistentClient(path=str(CHROMADB_PATH))
-
-    # Create or reuse the collection for job postings.
-    collection = client.get_or_create_collection(
-        name="job_postings",
-        configuration={"hnsw": {"space": "cosine"}}
-    )
-
-    # Prepare the job documents for embedding.
-    job_ids = [job["id"] for job in jobs]
-
-    job_documents = [
-        "Title: " + job["title"] +
-        ", Description: " + job["description"]
-        for job in jobs
-    ]
-
-    job_metadatas = [
-        {"title": job["title"]}
-        for job in jobs
-    ]
-
-    # Add new jobs or update existing jobs.
-    collection.upsert(
-        ids=job_ids,
-        documents=job_documents,
-        metadatas=job_metadatas
-    )
-
-    # Prepare the candidate profile for embedding.
-    resume_text = (
-        "Skills: " + ", ".join(profile.get("skills", [])) +
-        ", Experience: " +
-        str(profile.get("experience_years", 0)) + " years"
-    )
-
-    # Retrieve the five closest jobs, or fewer if the collection is smaller.
-    results = collection.query(
-        query_texts=[resume_text],
-        n_results=min(5, collection.count()),
-        include=["distances"]
-    )
-
-    # Process the results.
-    ranked_jobs = []
-
-    for i, job_id in enumerate(results["ids"][0]):
-
-        # Lower cosine distance means greater similarity.
-        distance = results["distances"][0][i]
-
-        # Convert cosine distance into a similarity score out of 100.
-        score = (1 - distance) * 100
-
-        # Find the corresponding job from the supplied list.
-        job = next(
-            (job for job in jobs if job["id"] == job_id),
-            None
-        )
-
-        if job:
-            ranked_jobs.append({
-                "job": job,
-                "score": score
-            })
-
-    # Sort from highest score to lowest score.
-    ranked_jobs.sort(
-        key=lambda item: item["score"],
-        reverse=True
-    )
-
-    return ranked_jobs
-
-
-if __name__ == "__main__":
-    profile = {
-        "skills": ["Python", "CSS"],
-        "experience_years": 2
-    }
-
-    jobs = [
-        {
-            "id": "job001",
-            "title": "Python Developer",
-            "description": "Build backend APIs using Python and SQL."
-        },
-        {
-            "id": "job002",
-            "title": "Data Analyst",
-            "description": "Analyze datasets using SQL and Excel."
-        },
-        {
-            "id": "job003",
-            "title": "Frontend Developer",
-            "description": "Build websites using HTML, CSS, and JavaScript."
-        }
-    ]
-
-    ranked_jobs = rank_jobs(profile, jobs)
-
-    for rank, item in enumerate(ranked_jobs, start=1):
-        print(
-            f"Rank: {rank}\n"
-            f"Job ID: {item['job']['id']}\n"
-            f"Title: {item['job']['title']}\n"
-            f"Similarity Score: {item['score']:.2f}/100\n"
-        )
+    ranked.sort(key=lambda item: (-item["score"], item["_index"]))
+    return [{key: value for key, value in item.items() if key != "_index"} for item in ranked[:5]]

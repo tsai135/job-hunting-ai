@@ -1,13 +1,28 @@
 
-from flask import Flask, render_template, request
+import os
+from pathlib import Path
+
+from flask import Flask, render_template, request, session
 
 # Import functions from teammates' modules
 from services.resume import parse_resume       # Sheyar
 from services.job_data import search_jobs       # Lawrence
 from services.matching import rank_jobs         # Bao
+from database import init_db, save_search
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "local-prototype-key")
+app.config["DATABASE"] = os.getenv(
+    "DATABASE_PATH", str(Path(app.instance_path) / "job_search.sqlite3")
+)
+Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+init_db(app.config["DATABASE"])
+
+
+@app.before_request
+def ensure_database() -> None:
+    init_db(app.config["DATABASE"])
 
 
 @app.get("/")
@@ -48,20 +63,29 @@ def match():
     }
 
     # STEP 2: Sheyar parses the resume
-    profile = parse_resume(pdf_bytes)
+    try:
+        profile = parse_resume(pdf_bytes)
 
-    # STEP 3: Lawrence retrieves jobs
-    jobs = search_jobs(profile, preferences)
+        # STEP 3: Lawrence retrieves jobs
+        jobs = search_jobs(profile, preferences)
 
-    # STEP 4: Bao ranks the jobs
-    matches = rank_jobs(profile, jobs)
+        # STEP 4: Bao ranks the jobs
+        matches = rank_jobs(profile, jobs)
+    except (RuntimeError, ValueError) as exc:
+        return render_template("upload.html", error=str(exc)), 503
+
+    owner_id = session.setdefault("owner_id", os.urandom(16).hex())
+    search_id = save_search(
+        app.config["DATABASE"], owner_id, profile, preferences, matches
+    )
 
     # STEP 5: Paulene's page displays the results
     return render_template(
         "results.html",
         matches=matches,
         profile=profile,
-        preferences=preferences
+        preferences=preferences,
+        search_id=search_id,
     )
 
 

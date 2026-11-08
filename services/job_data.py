@@ -13,6 +13,34 @@ class JobSearchError(RuntimeError):
     """Raised when Adzuna cannot return a usable job-search response."""
 
 
+DEMO_JOBS = [
+    {
+        "id": "demo-python",
+        "title": "Python Backend Developer",
+        "description": "Build Flask APIs and data services using Python and SQL.",
+        "company": "Demo Labs",
+        "location": "Remote",
+        "url": "https://example.com/jobs/demo-python",
+    },
+    {
+        "id": "demo-software",
+        "title": "Software Engineer",
+        "description": "Develop reliable web applications and collaborate on product features.",
+        "company": "Prototype Systems",
+        "location": "Remote",
+        "url": "https://example.com/jobs/demo-software",
+    },
+    {
+        "id": "demo-data",
+        "title": "Data Analyst",
+        "description": "Use SQL and Python to analyze datasets and communicate insights.",
+        "company": "Sample Analytics",
+        "location": "New York",
+        "url": "https://example.com/jobs/demo-data",
+    },
+]
+
+
 def search_jobs(profile: dict, preferences: dict) -> list[dict]:
     """Search Adzuna and return normalized job dictionaries.
 
@@ -21,6 +49,8 @@ def search_jobs(profile: dict, preferences: dict) -> list[dict]:
     app_id = os.getenv("ADZUNA_APP_ID")
     app_key = os.getenv("ADZUNA_APP_KEY")
     if not app_id or not app_key:
+        if os.getenv("JOB_SEARCH_DEMO", "1").lower() in {"1", "true", "yes"}:
+            return DEMO_JOBS.copy()
         raise RuntimeError("Set ADZUNA_APP_ID and ADZUNA_APP_KEY in your .env file.")
 
     # Prefer the user's chosen role; fall back to Sheyar's resume schema.
