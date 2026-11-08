@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -57,29 +58,41 @@ class ResumeProfile(BaseModel):
     academic_and_project_portfolio: list[AcademicOrProjectItem]
 
 
-def extract_text_from_pdf(pdf_path: str | os.PathLike[str]) -> str:
+def extract_text_from_pdf(pdf_input: str | os.PathLike[str] | bytes) -> str:
     """Extract raw text from every page of a PDF resume.
+
+    Accepts a local filesystem path or raw in-memory PDF bytes (e.g. from Flask).
 
     Raises:
         UnreadablePDFError: If the file is missing, encrypted, corrupt, or empty of text.
     """
-    path = Path(pdf_path)
-
-    if not path.is_file():
-        raise UnreadablePDFError(f"PDF not found: {path}")
-
-    try:
-        reader = PdfReader(str(path))
-    except (PdfReadError, PyPdfError, OSError, ValueError) as exc:
-        raise UnreadablePDFError(f"Unable to read PDF '{path}': {exc}") from exc
+    if isinstance(pdf_input, bytes):
+        source = "uploaded PDF"
+        if not pdf_input:
+            raise UnreadablePDFError("Uploaded PDF is empty.")
+        try:
+            reader = PdfReader(io.BytesIO(pdf_input))
+        except (PdfReadError, PyPdfError, OSError, ValueError) as exc:
+            raise UnreadablePDFError(f"Unable to read {source}: {exc}") from exc
+    else:
+        path = Path(pdf_input)
+        source = str(path)
+        if not path.is_file():
+            raise UnreadablePDFError(f"PDF not found: {path}")
+        try:
+            reader = PdfReader(str(path))
+        except (PdfReadError, PyPdfError, OSError, ValueError) as exc:
+            raise UnreadablePDFError(f"Unable to read PDF '{source}': {exc}") from exc
 
     if getattr(reader, "is_encrypted", False):
         try:
             unlocked = reader.decrypt("")
         except Exception as exc:
-            raise UnreadablePDFError(f"PDF is encrypted and cannot be opened: {path}") from exc
+            raise UnreadablePDFError(
+                f"PDF is encrypted and cannot be opened: {source}"
+            ) from exc
         if not unlocked:
-            raise UnreadablePDFError(f"PDF is encrypted and cannot be opened: {path}")
+            raise UnreadablePDFError(f"PDF is encrypted and cannot be opened: {source}")
 
     pages: list[str] = []
     page_number = 0
@@ -90,13 +103,13 @@ def extract_text_from_pdf(pdf_path: str | os.PathLike[str]) -> str:
     except (PdfReadError, PyPdfError, Exception) as exc:
         location = f"page {page_number}" if page_number else "the document"
         raise UnreadablePDFError(
-            f"Failed extracting text from {location} of '{path}': {exc}"
+            f"Failed extracting text from {location} of '{source}': {exc}"
         ) from exc
 
     text = "\n".join(pages).strip()
     if not text:
         raise UnreadablePDFError(
-            f"No extractable text found in '{path}'. The file may be scanned or image-only."
+            f"No extractable text found in '{source}'. The file may be scanned or image-only."
         )
 
     return text
@@ -142,9 +155,9 @@ def structure_resume_text(
     return message.parsed.model_dump()
 
 
-def parse_resume(pdf_path: str | os.PathLike[str], **kwargs) -> dict:
+def parse_resume(pdf_input: str | os.PathLike[str] | bytes, **kwargs) -> dict:
     """Run extraction then structuring. Intended for Flask and other callers."""
-    resume_text = extract_text_from_pdf(pdf_path)
+    resume_text = extract_text_from_pdf(pdf_input)
     return structure_resume_text(resume_text, **kwargs)
 
 
