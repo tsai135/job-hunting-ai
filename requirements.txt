@@ -8,3 +8,7 @@ MarkupSafe==3.0.4
 Werkzeug==3.1.9
 requests
 python-dotenv
+chromadb
+pypdf
+openai
+pydantic
