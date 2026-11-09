@@ -19,3 +19,27 @@ py -m venv .venv
 python -m pip install -r requirements.txt
 python app.py
 Open http://127.0.0.1:5000 in your web browser. Upload any nonempty PDF and enter a role/location to test the demo flow. The PDF content does not matter yet.
+
+Search-history persistence
+------------------------------------------------
+Before starting the server, initialize the local database from the repository root:
+
+```sh
+python -m flask --app app init-db
+python app.py
+```
+
+Completed matching requests now save profile/preferences/results. Open `/history`
+(or the HISTORY link) to reopen or delete saved searches. History belongs to the
+current browser session; accounts are not implemented. Keep cookies to retain access.
+The existing matching pipeline needs its normal Adzuna/model dependencies and credentials.
+
+SQLite data and a local session-signing key live in ignored `instance/`. Deployment
+should supply `SECRET_KEY` consistently to all workers. See
+[database design and team review decisions](docs/database-design.md).
+
+Run the offline persistence suite (Flask required; no API calls/model downloads):
+
+```sh
+python -m unittest discover -s tests -v
+```
