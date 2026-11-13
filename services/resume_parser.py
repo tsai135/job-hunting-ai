@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -54,29 +55,41 @@ class ResumeProfile(BaseModel):
     academic_and_project_portfolio: list[AcademicOrProjectItem]
 
 
-def extract_text_from_pdf(pdf_path: str | os.PathLike[str]) -> str:
+def _read_pdf(source: str | os.PathLike[str] | bytes) -> PdfReader:
+    if isinstance(source, bytes):
+        return PdfReader(io.BytesIO(source))
+    return PdfReader(str(source))
+
+
+def extract_text_from_pdf(pdf_path: str | os.PathLike[str] | bytes) -> str:
     """Extract raw text from every page of a PDF resume.
 
     Raises:
         UnreadablePDFError: If the file is missing, encrypted, corrupt, or empty of text.
     """
-    path = Path(pdf_path)
-
-    if not path.is_file():
+    path = Path(pdf_path) if not isinstance(pdf_path, bytes) else None
+    if path is not None and not path.is_file():
         raise UnreadablePDFError(f"PDF not found: {path}")
 
     try:
-        reader = PdfReader(str(path))
+        reader = _read_pdf(pdf_path)
     except (PdfReadError, PyPdfError, OSError, ValueError) as exc:
-        raise UnreadablePDFError(f"Unable to read PDF '{path}': {exc}") from exc
+        source_name = path or "uploaded PDF"
+        raise UnreadablePDFError(f"Unable to read PDF '{source_name}': {exc}") from exc
 
     if getattr(reader, "is_encrypted", False):
         try:
             unlocked = reader.decrypt("")
         except Exception as exc:
-            raise UnreadablePDFError(f"PDF is encrypted and cannot be opened: {path}") from exc
+            source_name = path or "uploaded PDF"
+            raise UnreadablePDFError(
+                f"PDF is encrypted and cannot be opened: {source_name}"
+            ) from exc
         if not unlocked:
-            raise UnreadablePDFError(f"PDF is encrypted and cannot be opened: {path}")
+            source_name = path or "uploaded PDF"
+            raise UnreadablePDFError(
+                f"PDF is encrypted and cannot be opened: {source_name}"
+            )
 
     pages: list[str] = []
     page_number = 0
@@ -86,14 +99,16 @@ def extract_text_from_pdf(pdf_path: str | os.PathLike[str]) -> str:
             pages.append(page_text)
     except (PdfReadError, PyPdfError, Exception) as exc:
         location = f"page {page_number}" if page_number else "the document"
+        source_name = path or "uploaded PDF"
         raise UnreadablePDFError(
-            f"Failed extracting text from {location} of '{path}': {exc}"
+            f"Failed extracting text from {location} of '{source_name}': {exc}"
         ) from exc
 
     text = "\n".join(pages).strip()
     if not text:
         raise UnreadablePDFError(
-            f"No extractable text found in '{path}'. The file may be scanned or image-only."
+            f"No extractable text found in '{path or 'uploaded PDF'}'. "
+            "The file may be scanned or image-only."
         )
 
     return text
@@ -139,10 +154,25 @@ def structure_resume_text(
     return message.parsed.model_dump()
 
 
-def parse_resume(pdf_path: str | os.PathLike[str], **kwargs) -> dict:
+def _normalize_profile(profile: dict) -> dict:
+    competencies = profile.get("core_competencies") or {}
+    skills: list[str] = []
+    for key in ("technical_skills", "domain_knowledge", "tools_and_frameworks"):
+        values = competencies.get(key, []) if isinstance(competencies, dict) else []
+        skills.extend(str(value) for value in values if str(value).strip())
+
+    experience = profile.get("professional_experience") or []
+    return {
+        **profile,
+        "skills": list(dict.fromkeys(skills)),
+        "experience_years": len(experience),
+    }
+
+
+def parse_resume(pdf_path: str | os.PathLike[str] | bytes, **kwargs) -> dict:
     """Run extraction then structuring. Intended for Flask and other callers."""
     resume_text = extract_text_from_pdf(pdf_path)
-    return structure_resume_text(resume_text, **kwargs)
+    return _normalize_profile(structure_resume_text(resume_text, **kwargs))
 
 
 def _cli() -> int:
