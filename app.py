@@ -1,8 +1,8 @@
-
 import os
 from pathlib import Path
 
-from flask import Flask, render_template, request, session
+from dotenv import load_dotenv
+from flask import Flask, render_template, request, session, redirect
 from openai import OpenAIError
 
 # Import functions from teammates' modules
@@ -11,9 +11,14 @@ from services.job_data import search_jobs       # Lawrence
 from services.matching import rank_jobs         # Bao
 from database import init_db, save_search
 
+load_dotenv()
 app = Flask(__name__)
+
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "local-prototype-key")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
 app.config["DATABASE"] = os.getenv(
     "DATABASE_PATH", str(Path(app.instance_path) / "job_search.sqlite3")
 )
@@ -28,8 +33,10 @@ def ensure_database() -> None:
 
 @app.get("/")
 def home():
-    return render_template("index.html")
-
+    return render_template(
+        "index.html",
+        preferences=session.get("preferences", {})
+    )
 
 @app.get("/login")
 def login_page():
@@ -44,6 +51,17 @@ def register_page():
 @app.get("/upload")
 def upload_page():
     return render_template("upload.html")
+
+@app.post("/save-preferences")
+def save_preferences():
+    preferences = {
+        "role": request.form.get("role", "").strip(),
+        "location": request.form.get("location", "").strip()
+    }
+
+    session["preferences"] = preferences
+
+    return redirect("/")
 
 
 @app.post("/match")
@@ -62,6 +80,9 @@ def match():
         "role": request.form.get("role", "").strip(),
         "location": request.form.get("location", "").strip()
     }
+
+    # Save the user's career preferences
+    session["preferences"] = preferences
 
     # STEP 2: Sheyar parses the resume
     try:
@@ -89,6 +110,47 @@ def match():
         search_id=search_id,
     )
 
+@app.get("/test-results")
+def test_results():
+    # Sample profile for frontend testing
+    profile = {
+        "skills": ["Python", "CSS"],
+        "experience_years": 2
+    }
+
+    # Sample jobs based on Bao's test data
+    jobs = [
+        {
+            "id": "job001",
+            "title": "Python Developer",
+            "description": "Build backend APIs using Python and SQL."
+        },
+        {
+            "id": "job002",
+            "title": "Data Analyst",
+            "description": "Analyze datasets using SQL and Excel."
+        },
+        {
+            "id": "job003",
+            "title": "Frontend Developer",
+            "description": "Build websites using HTML, CSS, and JavaScript."
+        }
+    ]
+
+    preferences = {
+        "role": "Software Engineer",
+        "location": "Chino Hills, CA"
+    }
+
+    # Run the actual matching algorithm
+    matches = rank_jobs(profile, jobs)
+
+    return render_template(
+        "results.html",
+        matches=matches,
+        profile=profile,
+        preferences=preferences
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
