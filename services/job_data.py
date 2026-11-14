@@ -21,6 +21,9 @@ DEMO_JOBS = [
         "company": "Demo Labs",
         "location": "Remote",
         "url": "https://example.com/jobs/demo-python",
+        "requirements": {
+            "job_skills": ["Python", "Flask", "SQL"]
+        },
     },
     {
         "id": "demo-software",
@@ -29,6 +32,9 @@ DEMO_JOBS = [
         "company": "Prototype Systems",
         "location": "Remote",
         "url": "https://example.com/jobs/demo-software",
+        "requirements": {
+            "job_skills": ["Python", "JavaScript", "React"]
+        },
     },
     {
         "id": "demo-data",
@@ -37,6 +43,9 @@ DEMO_JOBS = [
         "company": "Sample Analytics",
         "location": "New York",
         "url": "https://example.com/jobs/demo-data",
+        "requirements": {
+            "job_skills": ["SQL", "Python"]
+        },
     },
 ]
 
@@ -44,7 +53,7 @@ DEMO_JOBS = [
 def search_jobs(profile: dict, preferences: dict) -> list[dict]:
     """Search Adzuna and return normalized job dictionaries.
 
-    Each result has: id, title, description, company, location, url.
+    Each result has: id, title, description, company, location, url, and requirements.
     """
     app_id = os.getenv("ADZUNA_APP_ID")
     app_key = os.getenv("ADZUNA_APP_KEY")
@@ -70,7 +79,7 @@ def search_jobs(profile: dict, preferences: dict) -> list[dict]:
         "app_id": app_id,
         "app_key": app_key,
         "what": role,
-        "results_per_page": 20,
+        "results_per_page": 50,
     }
     if location:
         params["where"] = location
@@ -108,6 +117,9 @@ def search_jobs(profile: dict, preferences: dict) -> list[dict]:
             "company": company.get("display_name", "") if isinstance(company, dict) else "",
             "location": job_location.get("display_name", "") if isinstance(job_location, dict) else "",
             "url": item.get("redirect_url") or "",
+            "requirements": {
+                "job_skills": []
+            },
         })
 
     return jobs

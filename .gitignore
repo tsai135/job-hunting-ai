@@ -10,3 +10,5 @@ services/chromadb_jobs/
 instance/
 *.sqlite3
 *.sqlite3-*
+services/ranking_service
+chroma_jobs/

@@ -1,33 +1,83 @@
-"""Rank normalized job postings against a candidate profile."""
 
-from __future__ import annotations
+"""Connect the main application to Bao's job matching microservice."""
 
-import re
-from typing import Any
+import os
 
-
-def _profile_terms(profile: dict[str, Any]) -> set[str]:
-    terms = set(str(skill).lower() for skill in profile.get("skills", []))
-    candidate = profile.get("candidate_profile") or {}
-    if isinstance(candidate, dict):
-        terms.update(str(value).lower() for value in candidate.values())
-    return {term for term in terms if term}
+import requests
 
 
-def rank_jobs(profile: dict[str, Any], jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return up to five jobs scored by transparent lexical relevance.
+MATCH_SERVICE_URL = os.getenv(
+    "MATCH_SERVICE_URL",
+    "http://127.0.0.1:3117",
+).rstrip("/")
 
-    This avoids requiring a local embedding model for the first prototype.
-    The service boundary remains compatible with the previous ChromaDB result
-    shape and can be replaced with semantic scoring later.
-    """
-    terms = _profile_terms(profile)
-    ranked: list[dict[str, Any]] = []
-    for index, job in enumerate(jobs):
-        text = f"{job.get('title', '')} {job.get('description', '')}".lower()
-        matches = sum(bool(re.search(rf"\b{re.escape(term)}\b", text)) for term in terms)
-        score = min(100.0, round(35.0 + matches * 13.0, 2))
-        ranked.append({"job": job, "score": score, "_index": index})
 
-    ranked.sort(key=lambda item: (-item["score"], item["_index"]))
-    return [{key: value for key, value in item.items() if key != "_index"} for item in ranked[:5]]
+def rank_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
+    """Store retrieved jobs, rank the resume, and normalize results."""
+
+    if not jobs:
+        return []
+
+    try:
+        # Upload Adzuna jobs into Bao's persistent ChromaDB.
+        response = requests.post(
+            f"{MATCH_SERVICE_URL}/jobs",
+            json=jobs,
+            timeout=120,
+        )
+        response.raise_for_status()
+
+        # Rank only jobs from the current search.
+        response = requests.post(
+            f"{MATCH_SERVICE_URL}/resume",
+            json={
+                "resume": profile,
+                "job_ids": [
+                    str(job["id"])
+                    for job in jobs
+                    if job.get("id")
+                ],
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+
+    except requests.exceptions.ConnectionError as exc:
+        raise RuntimeError(
+            "The job matching service is currently unavailable. "
+            "Please try again later."
+        ) from exc
+
+    except requests.exceptions.Timeout as exc:
+        raise RuntimeError(
+            "The job matching service took too long to respond. "
+            "Please try again later."
+        ) from exc
+
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "The job matching service encountered an error. "
+            "Please try again later."
+        ) from exc
+
+    ranked_jobs = response.json()
+
+    if not isinstance(ranked_jobs, list):
+        raise ValueError(
+            "Matching service returned an invalid response."
+        )
+
+    matches = []
+
+    for result in ranked_jobs:
+        job = result["job_posting"]
+        score = round(float(result["final_score"]) * 100, 2)
+
+        matches.append({
+            "job": job,
+            "score": score,
+            "skill_score": result.get("skill_score"),
+            "semantic_score": result.get("semantic_score"),
+        })
+
+    return matches
