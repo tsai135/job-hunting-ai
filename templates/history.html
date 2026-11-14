@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <style>body{font-family:system-ui;margin:0;padding:24px}main{max-width:900px;margin:auto}a{color:inherit}article{border:1px solid #555;padding:20px;margin:20px 0}button{padding:10px;cursor:pointer}nav{display:flex;gap:24px}a:focus-visible,button:focus-visible{outline:3px solid #bcb3ff;outline-offset:4px}</style></head>
 <body class="dashboard-page"><main><nav aria-label="Navigation"><a href="/">Home</a><a href="/upload">Upload</a></nav>
-<h1>Your search history</h1><p>Saved in this browser session. Clearing cookies loses access to this history. No account is connected.</p>
+<h1>Your search history</h1><p>Your search history is saved on this server and linked to your browser session. Clearing your browser cookies may prevent you from accessing previous searches. No account is required.</p>
 {% for search in searches %}<article>
 <h2><a href="{{ url_for('saved_search', search_id=search.id) }}">{{ search.preferences.role or 'Any role' }}</a></h2>
 <p>{{ search.preferences.location or 'Any location' }} · <time>{{ search.created_at }}</time></p>

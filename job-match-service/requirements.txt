@@ -1,2 +1,5 @@
 chromadb
 Flask
+numpy
+python-dotenv
+requests

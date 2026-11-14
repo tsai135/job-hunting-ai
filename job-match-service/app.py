@@ -165,38 +165,64 @@ def embed_job_postings(job_postings: list) -> None:
 # Job matching.
 # ========================================
 
-def match_resume_with_jobs(resume_vector, resume_skills):
+
+def match_resume_with_jobs(resume_vector, resume_skills, job_ids):
     """
-    Matches a resume with job postings.
+    Rank only the jobs supplied for the current search.
+
+    Jobs remain stored persistently in ChromaDB.
     """
-    # Query the Chroma DB.
-    results = collection.query(
-        query_embeddings=[resume_vector],
-        n_results=min(10, collection.count()),
-        include=["distances", "metadatas"]
+
+    # Retrieve stored embeddings for the current search's jobs.
+    stored = collection.get(
+        ids=job_ids,
+        include=["embeddings", "metadatas"]
     )
 
-    # Process the results.
+    embeddings = stored["embeddings"]
+    metadatas = stored["metadatas"]
+
+    if embeddings is None or len(embeddings) == 0:
+        return []
+
     ranked_jobs = []
 
-    for i in range(len(results["ids"][0])):
+    import numpy as np
 
-        # Lower cosine distance means greater similarity.
-        distance = results["distances"][0][i]
+    resume_array = np.asarray(resume_vector, dtype=float)
+    resume_norm = np.linalg.norm(resume_array)
 
-        # Get and the job posting object.
-        job_data = results["metadatas"][0][i]["job_data"]
-        job_posting = json.loads(job_data)
+    for embedding, metadata in zip(embeddings, metadatas):
+        job_posting = json.loads(metadata["job_data"])
 
         if not isinstance(job_posting, dict):
             continue
 
-        job_skills = job_posting.get("requirements", {}).get("job_skills", [])
+        job_array = np.asarray(embedding, dtype=float)
+        job_norm = np.linalg.norm(job_array)
 
-        # Calculate the scores
-        skill_score = calculate_skill_score(job_skills, resume_skills)
-        semantic_score = calculate_semantic_score(distance)
-        final_score = calculate_final_score(skill_score, semantic_score)
+        # Cosine similarity, clamped to [0, 1].
+        if resume_norm == 0 or job_norm == 0:
+            semantic_score = 0.0
+        else:
+            cosine_similarity = float(
+                np.dot(resume_array, job_array)
+                / (resume_norm * job_norm)
+            )
+            semantic_score = max(0.0, min(1.0, cosine_similarity))
+
+        requirements = job_posting.get("requirements") or {}
+        job_skills = requirements.get("job_skills") or []
+
+        skill_score = calculate_skill_score(
+            job_skills,
+            resume_skills
+        )
+
+        final_score = calculate_final_score(
+            skill_score,
+            semantic_score
+        )
 
         ranked_jobs.append({
             "job_posting": job_posting,
@@ -205,13 +231,13 @@ def match_resume_with_jobs(resume_vector, resume_skills):
             "final_score": final_score
         })
 
-    # Sort the jobs by final score in descending order.
     ranked_jobs.sort(
-        key=lambda x: x["final_score"], 
+        key=lambda x: x["final_score"],
         reverse=True
     )
 
     return ranked_jobs[:5]
+
 
 
 # ========================================
@@ -324,30 +350,42 @@ def add_job_postings():
 
 
 # Match and rank job postings based on the resume json.
+
 @app.route("/resume", methods=["POST"])
 def match_resume_json():
-    resume = request.get_json(silent=True)
+    payload = request.get_json(silent=True)
 
-    # 400 Bad Request.
-    if not resume or not isinstance(resume, dict):
-        return jsonify({"error": "Expected a dictionary."}), 400
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Expected a JSON object."}), 400
 
-    # 404 Invalid. No job postings in the collection.
+    resume = payload.get("resume")
+    job_ids = payload.get("job_ids")
+
+    if not isinstance(resume, dict):
+        return jsonify({"error": "Expected a resume dictionary."}), 400
+
+    if (
+        not isinstance(job_ids, list)
+        or not job_ids
+        or not all(isinstance(job_id, str) and job_id for job_id in job_ids)
+    ):
+        return jsonify({"error": "Expected a nonempty list of job IDs."}), 400
+
     if collection.count() == 0:
-        return jsonify({"error": "No job postings in the collection."}), 404
+        return jsonify({"error": "No jobs are stored."}), 404
 
-    # Extract the resume skills.
     resume_skills = extract_resume_skills(resume)
-
-    # Extract the resume vector.
     resume_text = prepare_resume_text(resume)
     resume_vector = embedding_function([resume_text])[0].tolist()
 
-    # Return the results.
-    ranked_jobs = match_resume_with_jobs(resume_vector, resume_skills)
+    ranked_jobs = match_resume_with_jobs(
+        resume_vector,
+        resume_skills,
+        job_ids
+    )
 
-    # 200 OK.
     return jsonify(ranked_jobs), 200
+
 
 
 if __name__ == "__main__":
