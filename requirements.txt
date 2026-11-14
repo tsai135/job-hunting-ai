@@ -12,3 +12,4 @@ chromadb
 pypdf
 openai
 pydantic
+requests
