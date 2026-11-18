@@ -1,17 +1,40 @@
 """
-Test script for adding sample job postings to ChromaDB.
+Test script for matching a sample resume with job postings.
 Make sure the Flask microservice is running before executing this script.
-Simply delete the chroma_jobs folder to reset.
 """
 
 import requests
 
 
-URL = "http://127.0.0.1:3117/jobs"
+URL = "http://127.0.0.1:3117/match"
+
+
+# Sample resume.
+resume = {
+    "candidate_profile": {
+        "inferred_seniority": "Junior",
+        "primary_domain": "Software Development",
+        "career_trajectory": "Backend Development"
+    },
+    "executive_summary": "Aspiring software developer with experience in Python and JavaScript.",
+    "core_competencies": {
+        "technical_skills": ["Python", "JavaScript", "C++", "SQL"],
+        "domain_knowledge": ["Software Development", "Database Management"],
+        "tools_and_frameworks": ["Flask", "React", "Git", "Docker"]
+    },
+    "professional_experience": [],
+    "academic_and_project_portfolio": [
+        {
+            "title": "Job Hunting AI",
+            "type": "Software Project",
+            "description": "Developed a web application for resume and job matching."
+        }
+    ]
+}
 
 
 # Sample job postings.
-job_postings = [
+jobs = [
     {
         "id": "test-job-001",
         "title": "Junior Python Developer",
@@ -77,13 +100,39 @@ job_postings = [
 ]
 
 
-# Send the job postings to the microservice.
-try:
-    response = requests.post(URL, json=job_postings)
+# Prepare the request data.
+data = {
+    "resume": resume,
+    "jobs": jobs
+}
 
-    print("Status Code:", response.status_code)
-    print("Response:", response.json())
+# Send the request to the microservice.
+try:
+    response = requests.post(URL, json=data)
+    response.raise_for_status()
+
+    results = response.json()
+
+    # Print the ranked job results.
+    print("\n========== Job Matching Results ==========")
+
+    for index, result in enumerate(results, start=1):
+        job = result["job_posting"]
+
+        print(f"\nRank #{index}: {job.get('title', 'N/A')}")
+        print(f"Company:         {job.get('company', 'N/A')}")
+        print(f"Location:        {job.get('location', 'N/A')}")
+        print(f"URL:             {job.get('url', 'N/A')}")
+        print(f"Skill Score:     {result['skill_score']:.2f}")
+        print(f"Semantic Score:  {result['semantic_score']:.2f}")
+        print(f"Final Score:     {result['final_score']:.2f}")
+
+    print("\n==========================================")
 
 except requests.exceptions.ConnectionError:
     print("Could not connect to the Flask microservice.")
     print("Make sure the application is running.")
+
+except requests.exceptions.HTTPError as error:
+    print("Request failed:", error)
+    print(response.text)

@@ -1,34 +1,21 @@
 # Ho Gia Bao Le
 
-from flask import Flask, request, jsonify
-from pathlib import Path
-import chromadb
-import os
-from dotenv import load_dotenv
+# Standard libraries.
+import uuid
 import json
+
+# Third-party libraries.
+import chromadb
+from flask import Flask, request, jsonify
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-
-
-# Load environment variables.
-load_dotenv()
-
-# Set the path to the Chroma database.
-# Based on the current environment.
-CHROMA_PATH_LOCAL = Path(__file__).parent.resolve() / "chroma_jobs"
-CHROMA_PATH = os.getenv("CHROMA_PATH_VM", str(CHROMA_PATH_LOCAL))
 
 
 # Embedding function.
 embedding_function = DefaultEmbeddingFunction()
 
 
-# Create the Chroma client and collection.
-client = chromadb.PersistentClient(path=CHROMA_PATH)
-
-collection = client.get_or_create_collection(
-    name="job_postings",
-    metadata={"hnsw:space": "cosine"}
-)
+# Create the in-memory Chroma client.
+client = chromadb.EphemeralClient()
 
 
 # Initialize the Flask application.
@@ -127,7 +114,7 @@ def prepare_job_text(job_posting: dict) -> str:
     return job_text
 
 
-def embed_job_postings(job_postings: list) -> None:
+def embed_job_postings(job_postings: list, collection) -> None:
     """
     Embed job postings into the Chroma database.
     """
@@ -154,75 +141,52 @@ def embed_job_postings(job_postings: list) -> None:
         })
 
     # Upsert to the collection.
-    collection.upsert(
-        ids=job_ids,
-        documents=job_texts,
-        metadatas=job_metadatas
-    )
+    if job_ids:
+        collection.upsert(
+            ids=job_ids,
+            documents=job_texts,
+            metadatas=job_metadatas
+        )
 
 
 # ========================================
 # Job matching.
 # ========================================
 
-
-def match_resume_with_jobs(resume_vector, resume_skills, job_ids):
+def match_resume_with_jobs(resume_vector, resume_skills, collection):
     """
-    Rank only the jobs supplied for the current search.
-
-    Jobs remain stored persistently in ChromaDB.
+    Matches a resume with job postings.
     """
 
-    # Retrieve stored embeddings for the current search's jobs.
-    stored = collection.get(
-        ids=job_ids,
-        include=["embeddings", "metadatas"]
+    # Query the Chroma DB.
+    results = collection.query(
+        query_embeddings=[resume_vector],
+        n_results=collection.count(),
+        include=["distances", "metadatas"]
     )
 
-    embeddings = stored["embeddings"]
-    metadatas = stored["metadatas"]
-
-    if embeddings is None or len(embeddings) == 0:
-        return []
-
+    # Process the results.
     ranked_jobs = []
 
-    import numpy as np
+    for i in range(len(results["ids"][0])):
 
-    resume_array = np.asarray(resume_vector, dtype=float)
-    resume_norm = np.linalg.norm(resume_array)
+        # Lower cosine distance means greater similarity.
+        distance = results["distances"][0][i]
 
-    for embedding, metadata in zip(embeddings, metadatas):
-        job_posting = json.loads(metadata["job_data"])
+        # Get and the job posting object.
+        job_data = results["metadatas"][0][i]["job_data"]
+        job_posting = json.loads(job_data)
 
         if not isinstance(job_posting, dict):
             continue
 
-        job_array = np.asarray(embedding, dtype=float)
-        job_norm = np.linalg.norm(job_array)
-
-        # Cosine similarity, clamped to [0, 1].
-        if resume_norm == 0 or job_norm == 0:
-            semantic_score = 0.0
-        else:
-            cosine_similarity = float(
-                np.dot(resume_array, job_array)
-                / (resume_norm * job_norm)
-            )
-            semantic_score = max(0.0, min(1.0, cosine_similarity))
-
         requirements = job_posting.get("requirements") or {}
         job_skills = requirements.get("job_skills") or []
-
-        skill_score = calculate_skill_score(
-            job_skills,
-            resume_skills
-        )
-
-        final_score = calculate_final_score(
-            skill_score,
-            semantic_score
-        )
+        
+        # Calculate the scores
+        skill_score = calculate_skill_score(job_skills, resume_skills)
+        semantic_score = calculate_semantic_score(distance)
+        final_score = calculate_final_score(skill_score, semantic_score)
 
         ranked_jobs.append({
             "job_posting": job_posting,
@@ -231,8 +195,9 @@ def match_resume_with_jobs(resume_vector, resume_skills, job_ids):
             "final_score": final_score
         })
 
+    # Sort the jobs by final score in descending order.
     ranked_jobs.sort(
-        key=lambda x: x["final_score"],
+        key=lambda x: x["final_score"], 
         reverse=True
     )
 
@@ -246,74 +211,64 @@ def match_resume_with_jobs(resume_vector, resume_skills, job_ids):
 
 def extract_resume_skills(resume):
     """
-    Extracts skills from a resume json object.
+    Extracts unique skills from a resume JSON object.
     """
-
-    resume_skills = []
     if not resume:
-        return resume_skills
+        return []
 
-    # Extract skills from the resume.
     core_competencies = resume.get("core_competencies", {})
 
     if not core_competencies:
-        return resume_skills
+        return []
 
-    technical_skills = core_competencies.get("technical_skills", [])
-    domain_knowledge = core_competencies.get("domain_knowledge", [])
-    tools_and_frameworks = core_competencies.get("tools_and_frameworks", [])
+    # Extract skills from all categories.
+    resume_skills = [
+        skill
+        for category in ["technical_skills", "domain_knowledge", "tools_and_frameworks"]
+        for skill in core_competencies.get(category, [])
+    ]
 
-    # Append the extracted skills to the skills list.
-    resume_skills.extend(technical_skills)
-    resume_skills.extend(domain_knowledge)
-    resume_skills.extend(tools_and_frameworks)
-
-    # Remove duplicates by converting the list to a set and back to a list.
-    resume_skills = list(set(resume_skills))
-
-    return resume_skills 
+    # Remove duplicates while preserving the original order.
+    return list(dict.fromkeys(resume_skills)) 
 
 
 def prepare_resume_text(resume):
     """
     Prepare a candidate profile text for embedding.
     """
-
     candidate_profile = resume.get("candidate_profile", {})
     core_competencies = resume.get("core_competencies", {})
     experiences = resume.get("professional_experience", [])
     projects = resume.get("academic_and_project_portfolio", [])
 
-    full_experience_texts = []
-    for experience in experiences:
-        experience_doc = (
-            "Title: " + experience.get("title", "") +
-            ", Organization: " + experience.get("organization", "") +
-            ", Duration: " + experience.get("duration", "") +
-            ", Responsibilities: " + ", ".join(experience.get("responsibilities", []))
-        )
-        full_experience_texts.append(experience_doc)
+    # Prepare professional experience descriptions.
+    full_experience_texts = [
+        f"Title: {experience.get('title', '')}, "
+        f"Organization: {experience.get('organization', '')}, "
+        f"Duration: {experience.get('duration', '')}, "
+        f"Responsibilities: {', '.join(experience.get('responsibilities', []))}"
+        for experience in experiences
+    ]
 
-    full_project_texts = []
-    for project in projects:
-        project_doc = (
-            "Title: " + project.get("title", "") +
-            ", Type: " + project.get("type", "") +
-            ", Description: " + project.get("description", "")
-        )
-        full_project_texts.append(project_doc)
+    # Prepare project descriptions.
+    full_project_texts = [
+        f"Title: {project.get('title', '')}, "
+        f"Type: {project.get('type', '')}, "
+        f"Description: {project.get('description', '')}"
+        for project in projects
+    ]
 
-
+    # Combine resume information into a single text string.
     resume_text = (
-        "Seniority: " + candidate_profile.get("inferred_seniority", "") +
-        ", Domain: " + candidate_profile.get("primary_domain", "") +
-        ", Career Trajectory: " + candidate_profile.get("career_trajectory", "") +
-        ", Summary: " + resume.get("executive_summary", "") +
-        ", Technical Skills: " + ", ".join(core_competencies.get("technical_skills", [])) +
-        ", Domain Knowledge: " + ", ".join(core_competencies.get("domain_knowledge", [])) +
-        ", Tools and Frameworks: " + ", ".join(core_competencies.get("tools_and_frameworks", [])) +
-        ", Experience: " + ", ".join(full_experience_texts) +
-        ", Projects: " + ", ".join(full_project_texts)
+        f"Seniority: {candidate_profile.get('inferred_seniority', '')}, "
+        f"Domain: {candidate_profile.get('primary_domain', '')}, "
+        f"Career Trajectory: {candidate_profile.get('career_trajectory', '')}, "
+        f"Summary: {resume.get('executive_summary', '')}, "
+        f"Technical Skills: {', '.join(core_competencies.get('technical_skills', []))}, "
+        f"Domain Knowledge: {', '.join(core_competencies.get('domain_knowledge', []))}, "
+        f"Tools and Frameworks: {', '.join(core_competencies.get('tools_and_frameworks', []))}, "
+        f"Experience: {', '.join(full_experience_texts)}, "
+        f"Projects: {', '.join(full_project_texts)}"
     )
 
     return resume_text
@@ -332,60 +287,67 @@ def index():
     )
 
 
-# Add and embed new job postings to the ChromaDB.
-@app.route("/jobs", methods=["POST"])
-def add_job_postings():
-    job_postings = request.get_json(silent=True)
+# Match and rank job postings based on the resume json.
+@app.route("/match", methods=["POST"])
+def match_resume_json():
+    data = request.get_json(silent=True)
 
-    # 400 Bad Request.
-    if not job_postings or not isinstance(job_postings, list):
-        return jsonify({"error": "Expected a list of job postings."}), 400
+    # 400 Bad Request. Invalid data
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected a dictionary."}), 400
+
+    resume = data.get("resume")
+    job_postings = data.get("jobs")
+
+    # 400 Bad Request. Validate the resume and job data.
+    if not isinstance(resume, dict):
+        return jsonify({"error": "Expected resume to be a dictionary."}), 400
+
+    if not isinstance(job_postings, list) or not job_postings:
+        return jsonify({"error": "Expected a non-empty list of job postings."}), 400
 
     if not all(isinstance(job, dict) for job in job_postings):
         return jsonify({"error": "Expected each job posting to be a dictionary."}), 400
 
-    # 200 OK.
-    embed_job_postings(job_postings)
-    return jsonify({"message": "Job postings processed successfully."}), 200
+    # Create a unique collection for each request.
+    collection_name = f"jobs_{uuid.uuid4().hex}"
+    collection = None
 
+    try:
+        collection = client.create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"},
+            embedding_function=embedding_function
+        )
 
-# Match and rank job postings based on the resume json.
+        # Embed the job postings.
+        embed_job_postings(job_postings, collection)
 
-@app.route("/resume", methods=["POST"])
-def match_resume_json():
-    payload = request.get_json(silent=True)
+        # 400 Bad Request. No job postings.
+        if collection.count() == 0:
+            return jsonify({"error": "No valid job postings to process."}), 400
 
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Expected a JSON object."}), 400
+        # Extract the resume skills.
+        resume_skills = extract_resume_skills(resume)
+        
+        # Extract the resume vector.
+        resume_text = prepare_resume_text(resume)
+        resume_vector = embedding_function([resume_text])[0].tolist()
 
-    resume = payload.get("resume")
-    job_ids = payload.get("job_ids")
+        # Return the results.
+        ranked_jobs = match_resume_with_jobs(
+            resume_vector, 
+            resume_skills,
+            collection
+        )
 
-    if not isinstance(resume, dict):
-        return jsonify({"error": "Expected a resume dictionary."}), 400
+        # 200 OK.
+        return jsonify(ranked_jobs), 200
 
-    if (
-        not isinstance(job_ids, list)
-        or not job_ids
-        or not all(isinstance(job_id, str) and job_id for job_id in job_ids)
-    ):
-        return jsonify({"error": "Expected a nonempty list of job IDs."}), 400
-
-    if collection.count() == 0:
-        return jsonify({"error": "No jobs are stored."}), 404
-
-    resume_skills = extract_resume_skills(resume)
-    resume_text = prepare_resume_text(resume)
-    resume_vector = embedding_function([resume_text])[0].tolist()
-
-    ranked_jobs = match_resume_with_jobs(
-        resume_vector,
-        resume_skills,
-        job_ids
-    )
-
-    return jsonify(ranked_jobs), 200
-
+    # Delete the collection after each search.
+    finally:
+        if collection is not None:
+            client.delete_collection(name=collection_name)
 
 
 if __name__ == "__main__":

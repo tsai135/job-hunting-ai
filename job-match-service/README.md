@@ -2,7 +2,9 @@
 
 ## 1. Overview
 
-Flask API for job matching using ChromaDB embeddings and skill scoring.
+Flask API for matching resumes with job postings using ChromaDB embeddings and skill scoring.
+
+The service receives a resume and a list of job postings, then returns the top 5 matching jobs.
 
 ## 2. Running the Service
 
@@ -14,56 +16,41 @@ URL: `http://127.0.0.1:3117`
 
 ## 3. API Endpoints
 
-### POST `/jobs`
+### POST `/match`
 
-Adds job postings to ChromaDB.
+Receives a parsed resume and a list of job postings, then returns the top 5 matching jobs ranked by final score.
 
 **Request:**
 
 ```json
-[
-    {
-        "id": "job-001",
-        "title": "Python Developer",
-        "description": "Develop backend applications using Python and Flask.",
-        "company": "Tech Company",
-        "location": "Remote",
-        "requirements": {
-            "job_skills": ["Python", "Flask", "SQL"]
+{
+    "resume": {
+        "candidate_profile": {
+            "inferred_seniority": "Junior",
+            "primary_domain": "Software Development",
+            "career_trajectory": "Backend Development"
+        },
+        "executive_summary": "Aspiring software developer.",
+        "core_competencies": {
+            "technical_skills": ["Python", "JavaScript"],
+            "domain_knowledge": ["Software Development"],
+            "tools_and_frameworks": ["Flask", "Git"]
+        },
+        "professional_experience": [],
+        "academic_and_project_portfolio": []
+    },
+    "jobs": [
+        {
+            "id": "job-001",
+            "title": "Python Developer",
+            "description": "Develop backend applications using Python and Flask.",
+            "company": "Tech Company",
+            "location": "Remote",
+            "requirements": {
+                "job_skills": ["Python", "Flask", "SQL"]
+            }
         }
-    }
-]
-```
-
-**Successful response (200):**
-
-```json
-{
-    "message": "Job postings processed successfully."
-}
-```
-
-### POST `/resume`
-
-Receives a parsed resume and returns the top 10 matching job postings, ranked by final score.
-
-**Request:**
-
-```json
-{
-    "candidate_profile": {
-        "inferred_seniority": "Junior",
-        "primary_domain": "Software Development",
-        "career_trajectory": "Backend Development"
-    },
-    "executive_summary": "Aspiring software developer.",
-    "core_competencies": {
-        "technical_skills": ["Python", "JavaScript"],
-        "domain_knowledge": ["Software Development"],
-        "tools_and_frameworks": ["Flask", "Git"]
-    },
-    "professional_experience": [],
-    "academic_and_project_portfolio": []
+    ]
 }
 ```
 
@@ -75,7 +62,9 @@ Receives a parsed resume and returns the top 10 matching job postings, ranked by
         "job_posting": {
             "...": "Full original job posting"
         },
-        "final_score": 0.85
+        "skill_score": 0.67,
+        "semantic_score": 0.85,
+        "final_score": 0.778
     }
 ]
 ```
@@ -85,11 +74,11 @@ Receives a parsed resume and returns the top 10 matching job postings, ranked by
 With the Flask service running, open another terminal:
 
 ```bash
-python test_jobs.py
+python test_match.py
 ```
 
-Adds five sample job postings through `POST /jobs`. Repeated runs update the same records.
+Sends a sample resume and job postings through `POST /match` and displays the matching results.
 
-## 5. Database Reset
+## 5. Storage
 
-Stop the Flask service and delete the `chroma_jobs` folder to reset the database.
+Uses an in-memory ChromaDB collection created for each request. The collection is deleted after matching is complete. Job postings are not stored persistently.
