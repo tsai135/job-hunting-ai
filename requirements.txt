@@ -14,5 +14,4 @@ openai
 pydantic
 python-dotenv
 pytest
-sentence-transformers
 requests
