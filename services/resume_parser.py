@@ -9,13 +9,39 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError, PyPdfError
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_PROJECT_ROOT / ".env")
 
 DEFAULT_MODEL = os.getenv("OPENAI_RESUME_MODEL", "gpt-4o-2024-08-06")
+
+SYSTEM_PROMPT = (
+    "You extract structured candidate profiles from resume text. "
+    "Use only information present in the resume. Do not invent employers, "
+    "dates, or skills. Infer seniority, primary domain, and career trajectory "
+    "from the evidence in the document. Executive summary must be 2-3 sentences.\n\n"
+    "total_years_experience: calculate total non-overlapping years of professional "
+    "experience from employment date ranges. Convert months to fractional years. "
+    "Treat 'Present' or 'Current' as today. Merge overlapping intervals so concurrent "
+    "roles are not double-counted. If no employment dates are present, use 0.0.\n\n"
+    "Canonical skill normalization: standardize names in technical_skills, "
+    "domain_knowledge, and tools_and_frameworks to common industry forms. Examples: "
+    "React.js or ReactJS -> React; Postgres or postgres -> PostgreSQL; JS or js -> "
+    "JavaScript; Amazon Web Services -> AWS; Node.js stays Node.js if that is the "
+    "canonical form. Split combined items such as 'PyTorch/TensorFlow' into separate "
+    "skills ('PyTorch' and 'TensorFlow'). Never invent skills that are absent from "
+    "the resume; only rename or split skills that actually appear.\n\n"
+    "ideal_job_description: write a concise 120-160 word synthetic job posting for "
+    "the ideal role this candidate qualifies for (HyDE for vector matching). "
+    "Front-load the target job title, core technical stack, and key responsibilities. "
+    "No company name, culture, benefits, EEO, or other boilerplate. Keep the text "
+    "dense and specific so it fits a 256-token embedding window."
+)
 
 
 class UnreadablePDFError(Exception):
@@ -53,6 +79,20 @@ class ResumeProfile(BaseModel):
     core_competencies: CoreCompetencies
     professional_experience: list[ProfessionalExperience]
     academic_and_project_portfolio: list[AcademicOrProjectItem]
+    total_years_experience: float = Field(
+        default=0.0,
+        description=(
+            "Total non-overlapping years of professional experience calculated from "
+            "resume employment dates. Use 0.0 when no dates are present."
+        ),
+    )
+    ideal_job_description: str = Field(
+        default="",
+        description=(
+            "120-160 word synthetic job posting for the candidate's ideal role, "
+            "used for HyDE-based vector matching."
+        ),
+    )
 
 
 def _read_pdf(source: str | os.PathLike[str] | bytes) -> PdfReader:
@@ -64,29 +104,35 @@ def _read_pdf(source: str | os.PathLike[str] | bytes) -> PdfReader:
 def extract_text_from_pdf(pdf_path: str | os.PathLike[str] | bytes) -> str:
     """Extract raw text from every page of a PDF resume.
 
+    Accepts a local filesystem path or raw in-memory PDF bytes (e.g. from Flask).
+
     Raises:
         UnreadablePDFError: If the file is missing, encrypted, corrupt, or empty of text.
     """
-    path = Path(pdf_path) if not isinstance(pdf_path, bytes) else None
-    if path is not None and not path.is_file():
-        raise UnreadablePDFError(f"PDF not found: {path}")
+    if isinstance(pdf_path, bytes):
+        path = None
+        source_name = "uploaded PDF"
+        if not pdf_path:
+            raise UnreadablePDFError("Uploaded PDF is empty.")
+    else:
+        path = Path(pdf_path)
+        source_name = str(path)
+        if not path.is_file():
+            raise UnreadablePDFError(f"PDF not found: {path}")
 
     try:
         reader = _read_pdf(pdf_path)
     except (PdfReadError, PyPdfError, OSError, ValueError) as exc:
-        source_name = path or "uploaded PDF"
         raise UnreadablePDFError(f"Unable to read PDF '{source_name}': {exc}") from exc
 
     if getattr(reader, "is_encrypted", False):
         try:
             unlocked = reader.decrypt("")
         except Exception as exc:
-            source_name = path or "uploaded PDF"
             raise UnreadablePDFError(
                 f"PDF is encrypted and cannot be opened: {source_name}"
             ) from exc
         if not unlocked:
-            source_name = path or "uploaded PDF"
             raise UnreadablePDFError(
                 f"PDF is encrypted and cannot be opened: {source_name}"
             )
@@ -99,7 +145,6 @@ def extract_text_from_pdf(pdf_path: str | os.PathLike[str] | bytes) -> str:
             pages.append(page_text)
     except (PdfReadError, PyPdfError, Exception) as exc:
         location = f"page {page_number}" if page_number else "the document"
-        source_name = path or "uploaded PDF"
         raise UnreadablePDFError(
             f"Failed extracting text from {location} of '{source_name}': {exc}"
         ) from exc
@@ -107,7 +152,7 @@ def extract_text_from_pdf(pdf_path: str | os.PathLike[str] | bytes) -> str:
     text = "\n".join(pages).strip()
     if not text:
         raise UnreadablePDFError(
-            f"No extractable text found in '{path or 'uploaded PDF'}'. "
+            f"No extractable text found in '{source_name}'. "
             "The file may be scanned or image-only."
         )
 
@@ -124,18 +169,13 @@ def structure_resume_text(
     if not resume_text or not resume_text.strip():
         raise ValueError("Resume text is empty; cannot structure an empty document.")
 
-    openai_client = client or OpenAI()
+    openai_client = client or OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     completion = openai_client.beta.chat.completions.parse(
         model=model,
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You extract structured candidate profiles from resume text. "
-                    "Use only information present in the resume. Do not invent employers, "
-                    "dates, or skills. Infer seniority, primary domain, and career trajectory "
-                    "from the evidence in the document. Executive summary must be 2-3 sentences."
-                ),
+                "content": SYSTEM_PROMPT,
             },
             {
                 "role": "user",
@@ -154,6 +194,22 @@ def structure_resume_text(
     return message.parsed.model_dump()
 
 
+def _dedupe_skills_case_insensitive(skills: list[str]) -> list[str]:
+    """Drop case-insensitive duplicates, keeping first-seen casing and order."""
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for skill in skills:
+        text = str(skill).strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(text)
+    return deduped
+
+
 def _normalize_profile(profile: dict) -> dict:
     competencies = profile.get("core_competencies") or {}
     skills: list[str] = []
@@ -161,11 +217,17 @@ def _normalize_profile(profile: dict) -> dict:
         values = competencies.get(key, []) if isinstance(competencies, dict) else []
         skills.extend(str(value) for value in values if str(value).strip())
 
-    experience = profile.get("professional_experience") or []
+    deduped = _dedupe_skills_case_insensitive(skills)
+    years = profile.get("total_years_experience")
+    experience_years = 0.0 if years is None else float(years)
+    ideal_job_description = profile.get("ideal_job_description") or ""
+
     return {
         **profile,
-        "skills": list(dict.fromkeys(skills)),
-        "experience_years": len(experience),
+        "skills": deduped,
+        "resume_skills": list(deduped),
+        "experience_years": experience_years,
+        "ideal_job_description": str(ideal_job_description),
     }
 
 
