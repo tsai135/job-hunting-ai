@@ -12,7 +12,10 @@ import database
 from services.resume_parser import UnreadablePDFError, parse_resume
 from services.job_data import search_jobs
 from services.matching import rank_jobs
-
+from services.seniority import (
+    infer_job_seniority,
+    adjust_seniority,
+)
 
 load_dotenv()
 
@@ -132,7 +135,33 @@ def create_app(test_config=None):
         try:
             profile = parse_resume(pdf_bytes)
             jobs = search_jobs(profile, preferences)
+
+            # Classify job seniority using OpenAI.
+            jobs = infer_job_seniority(jobs)
+            print("\n=== JOB SENIORITY INFERENCE ===")
+            print("Candidate:", profile.get("candidate_profile", {}).get("inferred_seniority"))
+
+            for job in jobs[:10]:
+                print(job["title"], "=>", job.get("seniority"))
+
+            # Rank all retrieved jobs using Bao's service.
             matches = rank_jobs(profile, jobs)
+
+            # Apply seniority penalties and rerank.
+            matches = adjust_seniority(profile, matches)
+            print("\n=== SENIORITY-ADJUSTED RANKINGS ===")
+
+            for match in matches[:10]:
+                print(
+                    match["job"]["title"],
+                    "| Level:", match["job_seniority"],
+                    "| Original:", match["original_score"],
+                    "| Penalty:", match["seniority_penalty"],
+                    "| Adjusted:", match["score"],
+                )
+
+            # Show the 10 best adjusted matches.
+            matches = matches[:10]
         except (OpenAIError, RuntimeError, ValueError, UnreadablePDFError) as exc:
             return render_template("upload.html", error=str(exc)), 503
 

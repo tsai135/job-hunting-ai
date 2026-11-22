@@ -201,7 +201,7 @@ def match_resume_with_jobs(resume_vector, resume_skills, collection):
         reverse=True
     )
 
-    return ranked_jobs[:5]
+    return ranked_jobs[:20]
 
 
 
