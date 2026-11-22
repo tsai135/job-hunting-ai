@@ -1,8 +1,8 @@
-#!/bin/sh
-'''exec' "/Users/cliftonious/Desktop/CS 467/cloned_repo/job-hunting-ai/.venv/bin/python3.14" "$0" "$@"
-' '''
+#!/Users/lawrencetsai/Documents/GitHub/job-hunting-ai/.venv/bin/python
+# -*- coding: utf-8 -*-
+import re
 import sys
 from gunicorn.app.wsgiapp import run
 if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
     sys.exit(run())
