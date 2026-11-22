@@ -1,4 +1,5 @@
 
+import json
 import os
 import secrets
 import sqlite3
@@ -25,6 +26,8 @@ def create_app(test_config=None):
 
     app.config.update(
         MAX_CONTENT_LENGTH=5 * 1024 * 1024,
+        HISTORY_RETENTION_DAYS=int(os.getenv("HISTORY_RETENTION_DAYS", "30")),
+        SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "0").lower() in {"1", "true", "yes"},
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SECRET_KEY=os.getenv("FLASK_SECRET_KEY") or os.getenv("SECRET_KEY"),
@@ -71,7 +74,7 @@ def create_app(test_config=None):
         token = request.form.get("csrf_token", "")
 
         if not token or not secrets.compare_digest(
-            token, session["csrf_token"]
+            token.encode("utf-8"), session["csrf_token"].encode("utf-8")
         ):
             abort(400, description="Invalid form token. Reload the history page.")
 
@@ -138,32 +141,22 @@ def create_app(test_config=None):
 
             # Classify job seniority using OpenAI.
             jobs = infer_job_seniority(jobs)
-            print("\n=== JOB SENIORITY INFERENCE ===")
-            print("Candidate:", profile.get("candidate_profile", {}).get("inferred_seniority"))
-
-            for job in jobs[:10]:
-                print(job["title"], "=>", job.get("seniority"))
-
             # Rank all retrieved jobs using Bao's service.
             matches = rank_jobs(profile, jobs)
 
             # Apply seniority penalties and rerank.
             matches = adjust_seniority(profile, matches)
-            print("\n=== SENIORITY-ADJUSTED RANKINGS ===")
-
-            for match in matches[:10]:
-                print(
-                    match["job"]["title"],
-                    "| Level:", match["job_seniority"],
-                    "| Original:", match["original_score"],
-                    "| Penalty:", match["seniority_penalty"],
-                    "| Adjusted:", match["score"],
-                )
-
             # Show the 10 best adjusted matches.
             matches = matches[:10]
-        except (OpenAIError, RuntimeError, ValueError, UnreadablePDFError) as exc:
-            return render_template("upload.html", error=str(exc)), 503
+        except UnreadablePDFError:
+            return render_template("error.html", title="Resume could not be read",
+                message="Please upload a readable, text-based PDF resume.",
+                retry_url=url_for("upload_page")), 400
+        except (OpenAIError, RuntimeError, ValueError, KeyError, TypeError):
+            app.logger.error("Search processing failed.")
+            return render_template("error.html", title="Search temporarily unavailable",
+                message="We could not finish your search. No completed search was saved. Please try again later.",
+                retry_url=url_for("upload_page")), 503
 
         # Clifton: persist completed searches
         try:
@@ -171,11 +164,10 @@ def create_app(test_config=None):
                 owner_id(), profile, preferences, matches
             )
         except (sqlite3.Error, TypeError, ValueError):
-            app.logger.exception("Saving completed search failed.")
-            return (
-                "Search completed, but could not be saved. Please try again later.",
-                503,
-            )
+            app.logger.error("Saving completed search failed.")
+            # Preserve completed results while making the history failure clear.
+            return render_template("results.html", matches=matches, profile=profile,
+                preferences=preferences, persistence_warning=True), 503
 
         return render_template(
             "results.html",
@@ -239,7 +231,7 @@ def create_app(test_config=None):
         except ValueError:
             abort(400)
 
-        if page < 1:
+        if not 1 <= page <= 1000000:
             abort(400)
 
         searches = database.list_searches(
@@ -285,13 +277,13 @@ def create_app(test_config=None):
 
         return redirect(url_for("history"), code=303)
 
+    @app.errorhandler(json.JSONDecodeError)
     @app.errorhandler(sqlite3.Error)
     def storage_error(_error):
-        app.logger.exception("Search history storage operation failed.")
-        return (
-            "Search history is temporarily unavailable. Please try again later.",
-            503,
-        )
+        app.logger.error("Search history storage operation failed.")
+        return render_template("error.html", title="History temporarily unavailable",
+            message="Your request could not be completed. Please try again later.",
+            retry_url=url_for("history")), 503
 
     return app
 
