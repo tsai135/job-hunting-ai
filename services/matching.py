@@ -13,30 +13,18 @@ MATCH_SERVICE_URL = os.getenv(
 
 
 def rank_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
-    """Store retrieved jobs, rank the resume, and normalize results."""
+    """Send resume and job postings to Bao's matching microservice."""
 
     if not jobs:
         return []
 
     try:
-        # Upload Adzuna jobs into Bao's persistent ChromaDB.
+        # Send the resume and job postings for matching and ranking.
         response = requests.post(
-            f"{MATCH_SERVICE_URL}/jobs",
-            json=jobs,
-            timeout=120,
-        )
-        response.raise_for_status()
-
-        # Rank only jobs from the current search.
-        response = requests.post(
-            f"{MATCH_SERVICE_URL}/resume",
+            f"{MATCH_SERVICE_URL}/match",
             json={
                 "resume": profile,
-                "job_ids": [
-                    str(job["id"])
-                    for job in jobs
-                    if job.get("id")
-                ],
+                "jobs": jobs,
             },
             timeout=120,
         )
@@ -81,3 +69,50 @@ def rank_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
         })
 
     return matches
+
+
+# Test script for integration.
+if __name__ == "__main__":
+    profile = {
+        "candidate_profile": {
+            "inferred_seniority": "Junior",
+            "primary_domain": "Software Development",
+        },
+        "executive_summary": "Junior developer with Python experience.",
+        "core_competencies": {
+            "technical_skills": ["Python", "JavaScript", "SQL"],
+            "domain_knowledge": ["Software Development"],
+            "tools_and_frameworks": ["Flask", "Git"],
+        },
+        "professional_experience": [],
+        "academic_and_project_portfolio": [],
+    }
+
+    jobs = [
+        {
+            "id": "1",
+            "title": "Junior Python Developer",
+            "description": "Develop backend applications using Python and Flask.",
+            "company": "ABC Technologies",
+            "location": "California",
+            "requirements": {
+                "job_skills": ["Python", "Flask", "SQL"],
+            },
+        },
+        {
+            "id": "2",
+            "title": "Frontend Developer",
+            "description": "Build web applications using JavaScript and React.",
+            "company": "XYZ Solutions",
+            "location": "Remote",
+            "requirements": {
+                "job_skills": ["JavaScript", "React", "HTML"],
+            },
+        },
+    ]
+
+    results = rank_jobs(profile, jobs)
+
+    for index, result in enumerate(results, start=1):
+        print(f"\nRank #{index}: {result['job']['title']}")
+        print(f"Score:          {result['score']:.2f}")
