@@ -5,7 +5,7 @@ Register init_app(app), then explicitly run the init-db Flask command.
 """
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -67,6 +67,7 @@ def init_db():
 def init_app(app):
     """Register configuration, cleanup, and an explicit initialization command."""
     app.config.setdefault('DATABASE', str(Path(app.instance_path) / 'job_search.sqlite3'))
+    app.config.setdefault('HISTORY_RETENTION_DAYS', 30)
     app.teardown_appcontext(close_db)
 
     @app.cli.command('init-db')
@@ -74,6 +75,22 @@ def init_app(app):
         """Create missing search-history tables."""
         init_db()
         click.echo('Database initialized.')
+
+    @app.cli.command('prune-history')
+    @click.option('--apply', 'apply_changes', is_flag=True,
+                  help='Delete expired rows; default is preview only.')
+    def prune_history_command(apply_changes):
+        """Preview or remove searches older than HISTORY_RETENTION_DAYS."""
+        count = prune_history(dry_run=not apply_changes)
+        click.echo(f"{'Deleted' if apply_changes else 'Would delete'} {count} expired searches.")
+
+    @app.cli.command('backup-db')
+    @click.argument('destination', type=click.Path(path_type=Path))
+    def backup_db_command(destination):
+        """Create a consistent snapshot without overwriting existing files."""
+        backup_database(destination)
+        click.echo('Database backup created.')
+
 
 # ---------------------------------------------------------------------------
 # 3. SAVE ONE COMPLETED SEARCH
@@ -154,3 +171,47 @@ def delete_owner_data(owner_id):
     with db:
         result = db.execute('DELETE FROM searches WHERE owner_id=?', (owner_id,))
     return result.rowcount
+
+
+def prune_history(*, dry_run=True, now=None):
+    """Bound all stored searches by age, including abandoned browser sessions.
+
+    This uses creation time, not last activity. Run daily with --apply after
+    reviewing the configured retention policy. It is not scheduled by Flask.
+    """
+    days = current_app.config['HISTORY_RETENTION_DAYS']
+    if type(days) is not int or days < 1:
+        raise ValueError('HISTORY_RETENTION_DAYS must be a positive integer.')
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat().replace('+00:00', 'Z')
+    db = get_db()
+    if dry_run:
+        return db.execute('SELECT count(*) FROM searches WHERE julianday(created_at) < julianday(?)', (cutoff,)).fetchone()[0]
+    with db:
+        result = db.execute('DELETE FROM searches WHERE julianday(created_at) < julianday(?)', (cutoff,))
+    return result.rowcount
+
+
+def backup_database(destination):
+    """Use SQLite's online backup API rather than copying a live database file."""
+    destination = Path(destination)
+    # Open source before creating output, so a connection failure leaves no file.
+    source = get_db()
+    if source.in_transaction:
+        raise ValueError('Finish the current transaction before backing up.')
+    # Refuse to label an uninitialized database as a usable application backup.
+    source.execute('SELECT id FROM searches LIMIT 0')
+    # Exclusive creation protects existing backups and avoids following symlinks.
+    import os
+    descriptor = os.open(destination, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    os.close(descriptor)
+    try:
+        target = sqlite3.connect(destination)
+        try:
+            source.backup(target)
+            if target.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                raise sqlite3.DatabaseError('Backup integrity check failed.')
+        finally:
+            target.close()
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
