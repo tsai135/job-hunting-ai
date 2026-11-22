@@ -1,123 +1,83 @@
 
-import chromadb
-from pathlib import Path
+"""Connect the main application to Bao's job matching microservice."""
+
+import os
+
+import requests
 
 
-CHROMADB_PATH = Path(__file__).resolve().parent / "chromadb_jobs"
+MATCH_SERVICE_URL = os.getenv(
+    "MATCH_SERVICE_URL",
+    "http://127.0.0.1:3117",
+).rstrip("/")
 
 
 def rank_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
-    """
-    Rank job postings based on a candidate's profile using
-    ChromaDB semantic similarity search.
-    """
+    """Store retrieved jobs, rank the resume, and normalize results."""
 
-    # Create a persistent ChromaDB client.
-    client = chromadb.PersistentClient(path=str(CHROMADB_PATH))
+    if not jobs:
+        return []
 
-    # Create or reuse the collection for job postings.
-    collection = client.get_or_create_collection(
-        name="job_postings",
-        configuration={"hnsw": {"space": "cosine"}}
-    )
+    try:
+        # Upload Adzuna jobs into Bao's persistent ChromaDB.
+        response = requests.post(
+            f"{MATCH_SERVICE_URL}/jobs",
+            json=jobs,
+            timeout=120,
+        )
+        response.raise_for_status()
 
-    # Prepare the job documents for embedding.
-    job_ids = [job["id"] for job in jobs]
+        # Rank only jobs from the current search.
+        response = requests.post(
+            f"{MATCH_SERVICE_URL}/resume",
+            json={
+                "resume": profile,
+                "job_ids": [
+                    str(job["id"])
+                    for job in jobs
+                    if job.get("id")
+                ],
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
 
-    job_documents = [
-        "Title: " + job["title"] +
-        ", Description: " + job["description"]
-        for job in jobs
-    ]
+    except requests.exceptions.ConnectionError as exc:
+        raise RuntimeError(
+            "The job matching service is currently unavailable. "
+            "Please try again later."
+        ) from exc
 
-    job_metadatas = [
-        {"title": job["title"]}
-        for job in jobs
-    ]
+    except requests.exceptions.Timeout as exc:
+        raise RuntimeError(
+            "The job matching service took too long to respond. "
+            "Please try again later."
+        ) from exc
 
-    # Add new jobs or update existing jobs.
-    collection.upsert(
-        ids=job_ids,
-        documents=job_documents,
-        metadatas=job_metadatas
-    )
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "The job matching service encountered an error. "
+            "Please try again later."
+        ) from exc
 
-    # Prepare the candidate profile for embedding.
-    resume_text = (
-        "Skills: " + ", ".join(profile.get("skills", [])) +
-        ", Experience: " +
-        str(profile.get("experience_years", 0)) + " years"
-    )
+    ranked_jobs = response.json()
 
-    # Retrieve the five closest jobs, or fewer if the collection is smaller.
-    results = collection.query(
-        query_texts=[resume_text],
-        n_results=min(5, collection.count()),
-        include=["distances"]
-    )
-
-    # Process the results.
-    ranked_jobs = []
-
-    for i, job_id in enumerate(results["ids"][0]):
-
-        # Lower cosine distance means greater similarity.
-        distance = results["distances"][0][i]
-
-        # Convert cosine distance into a similarity score out of 100.
-        score = (1 - distance) * 100
-
-        # Find the corresponding job from the supplied list.
-        job = next(
-            (job for job in jobs if job["id"] == job_id),
-            None
+    if not isinstance(ranked_jobs, list):
+        raise ValueError(
+            "Matching service returned an invalid response."
         )
 
-        if job:
-            ranked_jobs.append({
-                "job": job,
-                "score": score
-            })
+    matches = []
 
-    # Sort from highest score to lowest score.
-    ranked_jobs.sort(
-        key=lambda item: item["score"],
-        reverse=True
-    )
+    for result in ranked_jobs:
+        job = result["job_posting"]
+        score = round(float(result["final_score"]) * 100, 2)
 
-    return ranked_jobs
+        matches.append({
+            "job": job,
+            "score": score,
+            "skill_score": result.get("skill_score"),
+            "semantic_score": result.get("semantic_score"),
+        })
 
-
-if __name__ == "__main__":
-    profile = {
-        "skills": ["Python", "CSS"],
-        "experience_years": 2
-    }
-
-    jobs = [
-        {
-            "id": "job001",
-            "title": "Python Developer",
-            "description": "Build backend APIs using Python and SQL."
-        },
-        {
-            "id": "job002",
-            "title": "Data Analyst",
-            "description": "Analyze datasets using SQL and Excel."
-        },
-        {
-            "id": "job003",
-            "title": "Frontend Developer",
-            "description": "Build websites using HTML, CSS, and JavaScript."
-        }
-    ]
-
-    ranked_jobs = rank_jobs(profile, jobs)
-
-    for rank, item in enumerate(ranked_jobs, start=1):
-        print(
-            f"Rank: {rank}\n"
-            f"Job ID: {item['job']['id']}\n"
-            f"Title: {item['job']['title']}\n"
-            f"Similarity Score: {item['score']:.2f}/100\n"
-        )
+    return matches

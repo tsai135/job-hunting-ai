@@ -13,14 +13,53 @@ class JobSearchError(RuntimeError):
     """Raised when Adzuna cannot return a usable job-search response."""
 
 
+DEMO_JOBS = [
+    {
+        "id": "demo-python",
+        "title": "Python Backend Developer",
+        "description": "Build Flask APIs and data services using Python and SQL.",
+        "company": "Demo Labs",
+        "location": "Remote",
+        "url": "https://example.com/jobs/demo-python",
+        "requirements": {
+            "job_skills": ["Python", "Flask", "SQL"]
+        },
+    },
+    {
+        "id": "demo-software",
+        "title": "Software Engineer",
+        "description": "Develop reliable web applications and collaborate on product features.",
+        "company": "Prototype Systems",
+        "location": "Remote",
+        "url": "https://example.com/jobs/demo-software",
+        "requirements": {
+            "job_skills": ["Python", "JavaScript", "React"]
+        },
+    },
+    {
+        "id": "demo-data",
+        "title": "Data Analyst",
+        "description": "Use SQL and Python to analyze datasets and communicate insights.",
+        "company": "Sample Analytics",
+        "location": "New York",
+        "url": "https://example.com/jobs/demo-data",
+        "requirements": {
+            "job_skills": ["SQL", "Python"]
+        },
+    },
+]
+
+
 def search_jobs(profile: dict, preferences: dict) -> list[dict]:
     """Search Adzuna and return normalized job dictionaries.
 
-    Each result has: id, title, description, company, location, url.
+    Each result has: id, title, description, company, location, url, and requirements.
     """
     app_id = os.getenv("ADZUNA_APP_ID")
     app_key = os.getenv("ADZUNA_APP_KEY")
     if not app_id or not app_key:
+        if os.getenv("JOB_SEARCH_DEMO", "1").lower() in {"1", "true", "yes"}:
+            return DEMO_JOBS.copy()
         raise RuntimeError("Set ADZUNA_APP_ID and ADZUNA_APP_KEY in your .env file.")
 
     # Prefer the user's chosen role; fall back to Sheyar's resume schema.
@@ -40,7 +79,7 @@ def search_jobs(profile: dict, preferences: dict) -> list[dict]:
         "app_id": app_id,
         "app_key": app_key,
         "what": role,
-        "results_per_page": 20,
+        "results_per_page": 50,
     }
     if location:
         params["where"] = location
@@ -78,6 +117,9 @@ def search_jobs(profile: dict, preferences: dict) -> list[dict]:
             "company": company.get("display_name", "") if isinstance(company, dict) else "",
             "location": job_location.get("display_name", "") if isinstance(job_location, dict) else "",
             "url": item.get("redirect_url") or "",
+            "requirements": {
+                "job_skills": []
+            },
         })
 
     return jobs
