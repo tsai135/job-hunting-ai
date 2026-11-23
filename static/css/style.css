@@ -569,6 +569,27 @@
     margin-bottom: 25px;
 }
 
+/* PR3: Additional job information */
+
+.job-details {
+    margin: 8px 0;
+    font-size: 0.9rem;
+    color: #a8a8a8;
+    line-height: 1.5;
+}
+
+.job-seniority {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 5px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 /* Match Score */
 
 .match-score {
