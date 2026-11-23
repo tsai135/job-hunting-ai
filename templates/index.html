@@ -32,7 +32,7 @@
                     HOME
                 </a>
 
-                <a href="/history">HISTORY</a>
+                <a href="{{ url_for('history') }}">HISTORY</a>
                 <a href="/upload">
                     UPLOAD
                 </a>
@@ -220,23 +220,25 @@
 
                 </article>
 
-                <!-- Saved Jobs -->
+                <!-- Search History -->
                 <article class="home-feature-card">
 
                     <span class="home-feature-number">
                         04
                     </span>
 
-                    <h3>Saved Jobs</h3>
+                    <h3>Search History</h3>
 
                     <p>
-                        Keep track of opportunities
-                        that interest you.
+                        Review your previous job searches,
+                        revisit recommendations, and
+                        manage your saved results.
                     </p>
 
-                    <span class="home-coming-soon">
-                        COMING SOON
-                    </span>
+                     <a href="{{ url_for('history') }}"
+                        class="home-card-link">
+                        VIEW SEARCH HISTORY
+                    </a>
 
                 </article>
 

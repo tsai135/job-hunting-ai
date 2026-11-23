@@ -55,7 +55,15 @@
                 Explore opportunities ranked around
                 your resume and career preferences.
             </p>
-            <p class="results-muted">Search {{ search_id }}</p>
+            {% if search_id is defined and search_id %}
+                <p class="results-muted">
+                    Search ID: {{ search_id }}
+                </p>
+            {% else %}
+                <p class="results-muted">
+                    Demo results using sample job data
+                </p>
+            {% endif %}
 
         </header>
 
@@ -94,8 +102,11 @@
 
             <h2>Skills identified</h2>
 
+            {% set competencies = profile.get("core_competencies") or {} %}
+            {% set skills = competencies.get("technical_skills") or profile.get("skills") or [] %}
+
             <div class="skills-list">
-                {% for skill in profile.skills %}
+                {% for skill in skills %}
                     <span class="skill-tag">
                         {{ skill }}
                     </span>
@@ -135,6 +146,23 @@
                             <h3>
                                 {{ match.job.title }}
                             </h3>
+
+                            <!-- Company and location -->
+                            {% if match.job.company or match.job.location %}
+                                <p class="job-details">
+                                    {% if match.job.company %}
+                                        <span>{{ match.job.company }}</span>
+                                    {% endif %}
+
+                                    {% if match.job.company and match.job.location %}
+                                        <span> · </span>
+                                    {% endif %}
+
+                                    {% if match.job.location %}
+                                        <span>{{ match.job.location }}</span>
+                                    {% endif %}
+                                </p>
+                            {% endif %}
 
                         </div>
 
@@ -192,11 +220,18 @@
         <!-- FOOTER ACTIONS -->
         <div class="results-actions">
 
-            <a href="/upload" class="results-action">
+            <a href="{{ url_for('upload_page') }}"
+                class="results-action">
                 UPLOAD ANOTHER RESUME
             </a>
 
-            <a href="/" class="results-home-link">
+            <a href="{{ url_for('history') }}"
+                class="results-action">
+                VIEW SEARCH HISTORY
+            </a>
+
+            <a href="{{ url_for('home') }}"
+                class="results-home-link">
                 BACK TO HOME
             </a>
 
